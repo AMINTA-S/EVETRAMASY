@@ -1,0 +1,1 @@
+{"version":3,"file":"parkingService.d.ts","sourceRoot":"","sources":["../../src/services/parkingService.ts"],"names":[],"mappings":"AAGA,eAAO,MAAM,cAAc;4BACK,MAAM,SAAS,MAAM,GAAG,OAAO,CAAC,IAAI,CAAC;wBAmCzC,MAAM,GAAG,OAAO,CAAC,OAAO,CAAC;+BA0BlB,MAAM,GAAG,OAAO,CAAC,IAAI,CAAC;6BAOxB,MAAM,GAAG,OAAO,CAAC;QAAE,WAAW,EAAE,MAAM,CAAC;QAAC,WAAW,EAAE,MAAM,CAAA;KAAE,CAAC;CAS9F,CAAC"}

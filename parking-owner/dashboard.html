@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EVETRAMASY – Parking Owner Dashboard</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <link rel="stylesheet" href="../css/main.css" />
+  <script src="../js/db.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/map.js"></script>
+
+  <style>
+    /* ── Owner accent overrides ── */
+    .nav-item.active { background: rgba(245,158,11,0.12); color: var(--role-owner); }
+    .nav-item.active svg { color: var(--role-owner); }
+    .role-parking_owner .sidebar-user-role { color: var(--role-owner); }
+
+    /* ── Stats grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 18px;
+      backdrop-filter: blur(12px);
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stat-card:hover { border-color: rgba(245,158,11,0.35); }
+    .stat-icon { font-size: 22px; }
+    .stat-value { font-size: 28px; font-weight: 800; color: var(--role-owner); }
+    .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+    /* ── Lot summary cards ── */
+    .lot-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .lot-summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      backdrop-filter: blur(12px);
+    }
+
+    /* ── Lot cards (My Lots page) ── */
+    .lots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .lot-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      transition: var(--transition);
+    }
+    .lot-card:hover { border-color: rgba(245,158,11,0.3); }
+    .lot-card-body { padding: 18px; }
+    .lot-card-name { font-size: 15px; font-weight: 700; }
+    .lot-card-addr { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .lot-card-footer {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Occupancy bar ── */
+    .occupancy-bar {
+      height: 6px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .occupancy-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .fill-low  { background: var(--success); }
+    .fill-med  { background: var(--warning); }
+    .fill-high { background: var(--danger); }
+
+    /* ── Event cards ── */
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .event-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: var(--transition);
+    }
+    .event-card:hover { border-color: var(--primary); }
+    .event-name { font-size: 16px; font-weight: 700; }
+    .event-meta { font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
+
+    /* ── App cards ── */
+    .app-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      backdrop-filter: blur(12px);
+      margin-bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+    .app-card-info { flex: 1; min-width: 200px; }
+
+    /* ── Notification items ── */
+    .notif-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .notif-item:hover { border-color: var(--primary); }
+    .notif-item.unread { border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.04); }
+    .notif-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+    .notif-msg { font-size: 14px; }
+    .notif-time { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+    /* ── Tabs ── */
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 8px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-muted);
+      transition: var(--transition);
+      font-family: 'Inter', sans-serif;
+    }
+    .tab-btn.active, .tab-btn:hover {
+      background: rgba(245,158,11,0.12);
+      border-color: var(--role-owner);
+      color: var(--role-owner);
+    }
+
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th {
+      padding: 12px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .data-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .data-table tr:hover td { background: var(--bg-card-hover); }
+    .data-table tr:last-child td { border-bottom: none; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: #12122a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(20px);
+      transition: transform 0.2s ease;
+    }
+    .modal-overlay.open .modal-box { transform: translateY(0); }
+    .modal-box-lg { max-width: 720px; }
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 17px; font-weight: 700; }
+    .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    .modal-close {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 20px; line-height: 1;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    /* ── Earnings ── */
+    .earnings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .earn-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      backdrop-filter: blur(12px);
+    }
+    .earn-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    .earn-value { font-size: 24px; font-weight: 800; color: var(--role-owner); }
+    .chart-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+
+    /* ── Flex helpers ── */
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .flex-gap-8   { display: flex; gap: 8px; }
+    .flex-gap-12  { display: flex; gap: 12px; }
+    .flex-wrap    { flex-wrap: wrap; }
+    .mt-8  { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mb-8  { margin-bottom: 8px; }
+    .mb-12 { margin-bottom: 12px; }
+    .mb-20 { margin-bottom: 20px; }
+
+    /* ── Page area ── */
+    .page-content { padding: 28px 28px; }
+    .page-header { margin-bottom: 24px; }
+    .page-header h2 { font-size: 22px; font-weight: 800; }
+    .page-header p  { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+
+    /* ── Form grid ── */
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── Amenity checkboxes ── */
+    .amenity-group { display: flex; flex-wrap: wrap; gap: 10px; }
+    .amenity-label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .amenity-label input { accent-color: var(--role-owner); }
+    .amenity-label:hover { border-color: var(--role-owner); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── Map placeholder ── */
+    #reg-map, #edit-map { border-radius: var(--radius); border: 1px solid var(--border); }
+
+    /* ── IoT Bay Sensor Grid & Telemetry ── */
+    .iot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .sensor-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .sensor-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+    }
+    .sensor-card.vacant {
+      border-color: rgba(34, 197, 94, 0.35);
+      background: linear-gradient(145deg, rgba(34, 197, 94, 0.04), rgba(18, 18, 42, 0.95));
+    }
+    .sensor-card.vacant:hover {
+      border-color: rgba(34, 197, 94, 0.85);
+      box-shadow: 0 0 18px rgba(34, 197, 94, 0.22);
+    }
+    .sensor-card.occupied {
+      border-color: rgba(239, 68, 68, 0.35);
+      background: linear-gradient(145deg, rgba(239, 68, 68, 0.06), rgba(18, 18, 42, 0.95));
+    }
+    .sensor-card.occupied:hover {
+      border-color: rgba(239, 68, 68, 0.85);
+      box-shadow: 0 0 18px rgba(239, 68, 68, 0.22);
+    }
+    .sensor-badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-vacant { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35); }
+    .badge-occupied { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); }
+    .sensor-metric {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 2px 0;
+    }
+    .sensor-metric strong { color: var(--text); }
+    .pulse-dot {
+      width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+      box-shadow: 0 0 6px currentColor;
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0.4; transform: scale(0.9); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Dashboard layout -->
+<div class="dashboard-layout">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar role-parking_owner" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">EVETRAMASY</div>
+      <div class="sidebar-subtitle">Parking Owner</div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="sidebar-avatar avatar-parking_owner" id="sidebar-avatar">P</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="sidebar-name">Owner</div>
+        <div class="sidebar-user-role">Parking Owner</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="overview">
+        <span>🏠</span> Overview
+      </button>
+      <button class="nav-item" data-page="register-lot">
+        <span>➕</span> Register Lot
+      </button>
+      <button class="nav-item" data-page="my-lots">
+        <span>🅿️</span> My Parking Lots
+      </button>
+      <button class="nav-item" data-page="iot-sensors">
+        <span>📡</span> IoT Bay Sensors
+      </button>
+      <button class="nav-item" data-page="browse-events">
+        <span>🎭</span> Browse Events
+      </button>
+      <button class="nav-item" data-page="my-applications">
+        <span>📋</span> My Applications
+      </button>
+      <button class="nav-item" data-page="bookings">
+        <span>📦</span> Bookings Received
+      </button>
+      <button class="nav-item" data-page="earnings">
+        <span>💰</span> Earnings
+      </button>
+      <button class="nav-item" data-page="notifications" id="nav-notif">
+        <span>🔔</span> Notifications
+        <span class="nav-badge" id="notif-badge" style="display:none">0</span>
+      </button>
+      <button class="nav-item" data-page="profile">
+        <span>👤</span> Profile
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="nav-item" data-page="logout" onclick="Auth.logout()">
+        <span>🚪</span> Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════════ MAIN CONTENT ══════════ -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <span class="topbar-title">Overview</span>
+      <div class="topbar-actions">
+        <button class="notif-btn" onclick="showPage('notifications')" title="Notifications">
+          🔔
+        </button>
+        <div class="sidebar-avatar avatar-parking_owner" id="topbar-avatar" style="width:36px;height:36px;font-size:14px;cursor:default;">P</div>
+      </div>
+    </header>
+
+    <!-- ── PAGE: Overview ── -->
+    <div class="page active page-content" id="page-overview">
+      <div class="page-header">
+        <h2>Dashboard Overview</h2>
+        <p>Welcome back! Here's your parking lot performance at a glance.</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="overview-stats"></div>
+
+      <!-- My Lots Summary -->
+      <div class="section-title">My Lots Summary</div>
+      <div class="lot-summary-grid" id="overview-lots"></div>
+
+      <!-- Recent Bookings -->
+      <div class="section-title mt-12">Recent Bookings</div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="data-table" id="overview-bookings-table">
+          <thead>
+            <tr>
+              <th>Booking ID</th><th>Lot</th><th>Vehicle No</th>
+              <th>Date</th><th>Amount</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="overview-bookings-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PAGE: Register Lot ── -->
+    <div class="page page-content" id="page-register-lot">
+      <div class="page-header">
+        <h2>Register New Parking Lot</h2>
+        <p>Add your parking lot to the EVETRAMASY network.</p>
+      </div>
+
+      <div class="card">
+        <form id="form-register-lot" autocomplete="off">
+          <div class="form-grid-2 mb-12">
+            <div class="form-group">
+              <label class="form-label">Lot Name *</label>
+              <input class="form-control" id="reg-name" type="text" placeholder="e.g. Central Plaza Parking" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lot Type</label>
+              <select class="form-control" id="reg-type">
+                <option value="Surface">Surface</option>
+                <option value="Multi-Storey">Multi-Storey</option>
+                <option value="Underground">Underground</option>
+                <option value="Basement">Basement</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group mb-12">
+            <label class="form-label">Description</label>
+            <textarea class="form-control" id="reg-desc" rows="2" placeholder="Brief description of your lot..."></textarea>
+          </div>
+
+          <div class="form-group mb-12">
+            <label class="form-label">Address</label>
+            <div class="flex-gap-8">
+              <input class="form-control" id="reg-address" type="text" placeholder="Enter address..." style="flex:1;" />
+              <button type="button" class="btn btn-ghost" onclick="geocodeRegAddress()">📍 Find on Map</button>
+            </div>
+          </div>
+
+          <!-- Map -->
+          <div class="form-group mb-12">
+            <label class="form-label">Pin Location on Map</label>
+            <div id="reg-map" style="height:300px;"></div>
+            <input type="hidden" id="reg-lat" />
+            <input type="hidden" id="reg-lng" />
+            <small class="text-dim" style="margin-top:6px;display:block;">Click the map to set location, or use "Find on Map"</small>
+          </div>
+
+          <div class="form-grid-2 mb-12">
+            <div class="form-group">
+              <label class="form-label">Total Spaces *</label>
+              <input class="form-control" id="reg-spaces" type="number" min="1" placeholder="50" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Price per Hour (₹) *</label>
+              <input class="form-control" id="reg-price" type="number" min="0" step="0.5" placeholder="30" required />
+            </div>
+          </div>
+
+          <div class="form-group mb-12">
+            <label class="form-label">Operating Hours</label>
+            <input class="form-control" id="reg-hours" type="text" placeholder="e.g. 6 AM - 11 PM or 24/7" />
+          </div>
+
+          <div class="form-group mb-12">
+            <label class="form-label">Amenities</label>
+            <div class="amenity-group">
+              <label class="amenity-label"><input type="checkbox" value="CCTV" /> CCTV 📷</label>
+              <label class="amenity-label"><input type="checkbox" value="Security Guard" /> Security Guard 💂</label>
+              <label class="amenity-label"><input type="checkbox" value="24/7" /> 24/7 ⏰</label>
+              <label class="amenity-label"><input type="checkbox" value="EV Charging" /> EV Charging ⚡</label>
+              <label class="amenity-label"><input type="checkbox" value="Covered" /> Covered 🏠</label>
+              <label class="amenity-label"><input type="checkbox" value="Valet" /> Valet 🎩</label>
+              <label class="amenity-label"><input type="checkbox" value="Handicap Access" /> Handicap Access ♿</label>
+            </div>
+          </div>
+
+          <div class="form-group mb-12">
+            <label class="form-label">Status</label>
+            <select class="form-control" id="reg-status" style="max-width:200px;">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-warning btn-lg" style="background: linear-gradient(135deg, var(--warning), #d97706);">
+            🏢 Register Parking Lot
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── PAGE: My Parking Lots ── -->
+    <div class="page page-content" id="page-my-lots">
+      <div class="page-header flex-between">
+        <div>
+          <h2>My Parking Lots</h2>
+          <p>Manage and monitor all your registered lots.</p>
+        </div>
+        <button class="btn btn-warning" style="background:linear-gradient(135deg,var(--warning),#d97706);" onclick="showPage('register-lot')">
+          ➕ Add Lot
+        </button>
+      </div>
+      <div class="lots-grid" id="my-lots-grid"></div>
+    </div>
+
+    <!-- ── PAGE: IoT Bay Sensors ── -->
+    <div class="page page-content" id="page-iot-sensors">
+      <div class="page-header flex-between flex-wrap" style="gap:16px;">
+        <div>
+          <h2>📡 IoT Bay Sensors & Live Telemetry</h2>
+          <p>Real-time slot occupancy sensors (ultrasonic & geomagnetic) installed in each bay. Telemetry automatically synchronizes live parking availability for event attendees and customers.</p>
+        </div>
+        <div class="flex-gap-8 flex-wrap">
+          <button class="btn btn-ghost" onclick="renderIoTSensors()">🔄 Refresh Telemetry</button>
+          <button class="btn btn-warning" style="background:linear-gradient(135deg,var(--warning),#d97706);" onclick="openAddSensorModal()">➕ Pair New Sensor</button>
+        </div>
+      </div>
+
+      <!-- Lot Selector & Telemetry Bar -->
+      <div class="card mb-20" style="padding:16px 20px;">
+        <div class="flex-between flex-wrap" style="gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <label style="font-weight:600;font-size:14px;color:var(--text-muted);">Select Parking Lot:</label>
+            <select class="form-control" id="iot-lot-select" style="max-width:320px;" onchange="onIotLotChange()">
+              <!-- options populated dynamically -->
+            </select>
+          </div>
+          <div class="flex-gap-8 flex-wrap">
+            <button class="btn btn-sm btn-ghost" title="Simulate a vehicle parking" onclick="simulateVehicleArrival()">
+              🚗 Simulate Car Arrival
+            </button>
+            <button class="btn btn-sm btn-ghost" title="Simulate a vehicle leaving" onclick="simulateVehicleDeparture()">
+              🚙 Simulate Car Exit
+            </button>
+            <button class="btn btn-sm btn-ghost" title="Randomize all sensor bays" onclick="randomizeSensors()">
+              🎲 Fluctuate All
+            </button>
+            <button class="btn btn-sm btn-ghost" style="color:var(--success);border-color:rgba(34,197,94,0.3);" title="Set all bays vacant" onclick="vacateAllSensors()">
+              🟢 Vacate All
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- IoT Stats Cards -->
+      <div class="stats-grid mb-20" id="iot-stats-grid">
+        <!-- Dynamically generated stats: Total Sensors, Vacant Bays, Occupied Bays, Avg Battery, Network Signal -->
+      </div>
+
+      <!-- Sensor Fleet Status Banner -->
+      <div class="card mb-20" style="padding:14px 20px;background:rgba(245,158,11,0.05);border-color:rgba(245,158,11,0.25);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:24px;">📶</span>
+          <div>
+            <strong style="color:var(--role-owner);font-size:14px;">LoRaWAN / NB-IoT Gateway: Online & Broadcasting</strong>
+            <div style="font-size:12px;color:var(--text-muted);">Sensor heartbeat interval: 15s • Sub-GHz 865-867 MHz ISM Band • End-to-End AES-128 Encryption</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;font-size:12px;color:var(--text-muted);">
+          <span>🟢 Click any slot below to toggle vehicle occupancy in real-time</span>
+        </div>
+      </div>
+
+      <!-- Visual Bay Grid -->
+      <div class="section-title flex-between">
+        <span>Monitored Parking Bays (<span id="iot-bay-count">0</span>)</span>
+        <div style="display:flex;gap:12px;font-size:12px;">
+          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#22c55e;"></span> Vacant</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></span> Occupied</span>
+        </div>
+      </div>
+
+      <div class="iot-grid" id="iot-sensor-grid">
+        <!-- Bay Sensor Cards -->
+      </div>
+    </div>
+
+    <!-- ── PAGE: Browse Events ── -->
+    <div class="page page-content" id="page-browse-events">
+      <div class="page-header">
+        <h2>Browse Events</h2>
+        <p>Find upcoming events and apply with your parking lots.</p>
+      </div>
+      <div class="events-grid" id="events-grid"></div>
+    </div>
+
+    <!-- ── PAGE: My Applications ── -->
+    <div class="page page-content" id="page-my-applications">
+      <div class="page-header">
+        <h2>My Applications</h2>
+        <p>Track the status of your parking lot applications.</p>
+      </div>
+      <div class="tab-bar" id="app-tabs">
+        <button class="tab-btn active" data-tab="All" onclick="filterApps('All', this)">All</button>
+        <button class="tab-btn" data-tab="pending" onclick="filterApps('pending', this)">Pending</button>
+        <button class="tab-btn" data-tab="accepted" onclick="filterApps('accepted', this)">Accepted</button>
+        <button class="tab-btn" data-tab="declined" onclick="filterApps('declined', this)">Declined</button>
+      </div>
+      <div id="apps-list"></div>
+    </div>
+
+    <!-- ── PAGE: Bookings Received ── -->
+    <div class="page page-content" id="page-bookings">
+      <div class="page-header">
+        <h2>Bookings Received</h2>
+        <p>All bookings across your parking lots.</p>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="filterBookings('active', this)">Active</button>
+        <button class="tab-btn" onclick="filterBookings('confirmed', this)">Confirmed</button>
+        <button class="tab-btn" onclick="filterBookings('completed', this)">Completed</button>
+        <button class="tab-btn" onclick="filterBookings('cancelled', this)">Cancelled</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Booking ID</th><th>Lot</th><th>Customer</th>
+              <th>Vehicle No</th><th>Date</th><th>Duration</th><th>Amount</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="bookings-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PAGE: Earnings ── -->
+    <div class="page page-content" id="page-earnings">
+      <div class="page-header">
+        <h2>Earnings</h2>
+        <p>Revenue summary and analytics for your parking lots.</p>
+      </div>
+      <div class="earnings-grid" id="earnings-stats"></div>
+      <div class="chart-wrap">
+        <div class="section-title mb-12">Daily Earnings – Last 30 Days</div>
+        <canvas id="earningsChart" height="100"></canvas>
+      </div>
+      <div class="section-title">Per-Lot Breakdown</div>
+      <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
+        <table class="data-table">
+          <thead>
+            <tr><th>Lot Name</th><th>Total Bookings</th><th>Revenue (₹)</th><th>Avg Rating</th></tr>
+          </thead>
+          <tbody id="earnings-lot-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PAGE: Notifications ── -->
+    <div class="page page-content" id="page-notifications">
+      <div class="page-header flex-between">
+        <div>
+          <h2>Notifications</h2>
+          <p>Stay updated on bookings and applications.</p>
+        </div>
+        <button class="btn btn-ghost" onclick="markAllRead()">✅ Mark All Read</button>
+      </div>
+      <div id="notif-list"></div>
+    </div>
+
+    <!-- ── PAGE: Profile ── -->
+    <div class="page page-content" id="page-profile">
+      <div class="page-header">
+        <h2>My Profile</h2>
+        <p>Update your account information.</p>
+      </div>
+
+      <div class="card mb-20" style="max-width:520px;">
+        <div class="section-title mb-12">Personal Information</div>
+        <form id="form-profile" style="display:flex;flex-direction:column;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input class="form-control" id="prof-name" type="text" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-control" id="prof-email" type="email" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input class="form-control" id="prof-phone" type="tel" />
+          </div>
+          <button type="submit" class="btn btn-warning" style="background:linear-gradient(135deg,var(--warning),#d97706);align-self:flex-start;">
+            💾 Save Changes
+          </button>
+        </form>
+      </div>
+
+      <div class="card" style="max-width:520px;">
+        <div class="section-title mb-12">Change Password</div>
+        <form id="form-password" style="display:flex;flex-direction:column;gap:16px;">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input class="form-control" id="prof-old-pass" type="password" placeholder="Enter current password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input class="form-control" id="prof-new-pass" type="password" placeholder="Enter new password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input class="form-control" id="prof-confirm-pass" type="password" placeholder="Confirm new password" />
+          </div>
+          <button type="submit" class="btn btn-ghost" style="align-self:flex-start;">
+            🔒 Update Password
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+</div><!-- /dashboard-layout -->
+
+<!-- ══════════ MODAL: Apply for Event ══════════ -->
+<div class="modal-overlay" id="modal-apply">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-apply-title">Apply for Event</h3>
+      <button class="modal-close" onclick="closeModal('modal-apply')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Select Your Lot</label>
+        <select class="form-control" id="apply-lot-select"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Message to Organiser</label>
+        <textarea class="form-control" id="apply-message" rows="4" placeholder="Tell the organiser why your lot is a great fit..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-apply')">Cancel</button>
+      <button class="btn btn-warning" style="background:linear-gradient(135deg,var(--warning),#d97706);" onclick="submitApplication()">
+        📋 Submit Application
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: Edit Lot ══════════ -->
+<div class="modal-overlay" id="modal-edit-lot">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-header">
+      <h3>✏️ Edit Parking Lot</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-lot')">✕</button>
+    </div>
+    <div class="modal-body" id="edit-modal-body">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Lot Name *</label>
+          <input class="form-control" id="edit-name" type="text" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lot Type</label>
+          <select class="form-control" id="edit-type">
+            <option value="Surface">Surface</option>
+            <option value="Multi-Storey">Multi-Storey</option>
+            <option value="Underground">Underground</option>
+            <option value="Basement">Basement</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-control" id="edit-desc" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <div class="flex-gap-8">
+          <input class="form-control" id="edit-address" type="text" style="flex:1;" />
+          <button type="button" class="btn btn-ghost" onclick="geocodeEditAddress()">📍 Find</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Map</label>
+        <div id="edit-map" style="height:220px;"></div>
+        <input type="hidden" id="edit-lat" />
+        <input type="hidden" id="edit-lng" />
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Total Spaces</label>
+          <input class="form-control" id="edit-spaces" type="number" min="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price per Hour (₹)</label>
+          <input class="form-control" id="edit-price" type="number" min="0" step="0.5" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Operating Hours</label>
+        <input class="form-control" id="edit-hours" type="text" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amenities</label>
+        <div class="amenity-group" id="edit-amenities">
+          <label class="amenity-label"><input type="checkbox" value="CCTV" /> CCTV 📷</label>
+          <label class="amenity-label"><input type="checkbox" value="Security Guard" /> Security Guard 💂</label>
+          <label class="amenity-label"><input type="checkbox" value="24/7" /> 24/7 ⏰</label>
+          <label class="amenity-label"><input type="checkbox" value="EV Charging" /> EV Charging ⚡</label>
+          <label class="amenity-label"><input type="checkbox" value="Covered" /> Covered 🏠</label>
+          <label class="amenity-label"><input type="checkbox" value="Valet" /> Valet 🎩</label>
+          <label class="amenity-label"><input type="checkbox" value="Handicap Access" /> Handicap Access ♿</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-control" id="edit-status" style="max-width:200px;">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-lot')">Cancel</button>
+      <button class="btn btn-warning" style="background:linear-gradient(135deg,var(--warning),#d97706);" onclick="saveEditLot()">
+        💾 Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: Event Detail ══════════ -->
+<div class="modal-overlay" id="modal-event-detail">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-header">
+      <h3 id="modal-ev-name">Event Details</h3>
+      <button class="modal-close" onclick="closeModal('modal-event-detail')">✕</button>
+    </div>
+    <div class="modal-body" id="modal-ev-content" style="padding:16px 0;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-event-detail')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: Add IoT Sensor Node ══════════ -->
+<div class="modal-overlay" id="modal-add-sensor">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📡 Pair New IoT Bay Sensor</h3>
+      <button class="modal-close" onclick="closeModal('modal-add-sensor')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-add-sensor" onsubmit="submitAddSensor(event)">
+        <div class="form-group mb-12">
+          <label class="form-label">Select Parking Lot *</label>
+          <select class="form-control" id="sensor-lot-id" required></select>
+        </div>
+        <div class="form-grid-2 mb-12">
+          <div class="form-group">
+            <label class="form-label">Bay / Slot Code *</label>
+            <input class="form-control" id="sensor-slot-code" type="text" placeholder="e.g. A-09 or L2-15" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Floor / Zone</label>
+            <input class="form-control" id="sensor-floor" type="text" placeholder="e.g. Ground Floor - Zone A" value="Ground Floor" />
+          </div>
+        </div>
+        <div class="form-grid-2 mb-12">
+          <div class="form-group">
+            <label class="form-label">Sensor Technology</label>
+            <select class="form-control" id="sensor-type">
+              <option value="In-Ground Geomagnetic">In-Ground Geomagnetic (Sub-surface)</option>
+              <option value="Overhead Ultrasonic">Overhead Ultrasonic (Ceiling)</option>
+              <option value="Dual Radar & Optical">Dual Radar & Optical (AI)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hardware Serial / Node ID *</label>
+            <input class="form-control" id="sensor-hardware-id" type="text" placeholder="e.g. SN-MAG-204" required />
+          </div>
+        </div>
+        <div class="form-group mb-12">
+          <label class="form-label">Initial State</label>
+          <select class="form-control" id="sensor-initial-status">
+            <option value="vacant">🟢 Vacant (No vehicle)</option>
+            <option value="occupied">🔴 Occupied</option>
+          </select>
+        </div>
+        <div class="modal-footer" style="padding:16px 0 0 0;margin-top:16px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('modal-add-sensor')">Cancel</button>
+          <button type="submit" class="btn btn-warning" style="background:linear-gradient(135deg,var(--warning),#d97706);">
+            🔗 Pair & Activate Sensor
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SCRIPT ══════════ -->
+<script>
+  // ── Auth guard ──────────────────────────────────────────────
+  DB.seed();
+  const user = Auth.requireAuth('parking_owner');
+  if (!user) throw new Error('not auth');
+
+  // ── Toast ───────────────────────────────────────────────────
+  function showToast(msg, type = 'success') {
+    const d = document.createElement('div');
+    d.className = `toast toast-${type}`;
+    d.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span>${msg}</span>`;
+    document.getElementById('toast-container').appendChild(d);
+    setTimeout(() => d.remove(), 4000);
+  }
+
+  // ── Page navigation ─────────────────────────────────────────
+  const pageTitles = {
+    'overview': 'Dashboard Overview',
+    'register-lot': 'Register New Lot',
+    'my-lots': 'My Parking Lots',
+    'iot-sensors': '📡 IoT Bay Sensors & Telemetry',
+    'browse-events': 'Browse Events',
+    'my-applications': 'My Applications',
+    'bookings': 'Bookings Received',
+    'earnings': 'Earnings',
+    'notifications': 'Notifications',
+    'profile': 'My Profile'
+  };
+
+  let regMapInited = false;
+  let editMapInited = false;
+
+  function showPage(id) {
+    if (id === 'logout') { Auth.logout(); return; }
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const pg = document.getElementById('page-' + id);
+    if (!pg) return;
+    pg.classList.add('active');
+    const navEl = document.querySelector(`[data-page="${id}"]`);
+    if (navEl) navEl.classList.add('active');
+    document.querySelector('.topbar-title').textContent = pageTitles[id] || id;
+
+    // Lazy page renders
+    if (id === 'overview')          renderOverview();
+    if (id === 'my-lots')           renderMyLots();
+    if (id === 'iot-sensors')       renderIoTSensors();
+    if (id === 'browse-events')     renderEvents();
+    if (id === 'my-applications')   renderApps('All');
+    if (id === 'bookings')          renderBookings('active');
+    if (id === 'earnings')          renderEarnings();
+    if (id === 'notifications')     renderNotifications();
+    if (id === 'profile')           renderProfile();
+
+    // Lazy map init
+    if (id === 'register-lot' && !regMapInited) {
+      setTimeout(initRegMap, 80);
+      regMapInited = true;
+    }
+  }
+
+  // Wire nav items
+  document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => showPage(btn.dataset.page));
+  });
+
+  // ── Sidebar user info ───────────────────────────────────────
+  function initSidebar() {
+    document.getElementById('sidebar-name').textContent = user.name;
+    const initials = user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    document.getElementById('sidebar-avatar').textContent = initials;
+    document.getElementById('topbar-avatar').textContent = initials;
+    updateNotifBadge();
+  }
+
+  function updateNotifBadge() {
+    const notes = DB.Notifications.forUser(user.id);
+    const unread = notes.filter(n => !n.read).length;
+    const badge = document.getElementById('notif-badge');
+    if (unread > 0) {
+      badge.textContent = unread;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function statusBadge(status) {
+    const map = {
+      active: 'badge-success', inactive: 'badge-muted',
+      pending: 'badge-warning', accepted: 'badge-success', declined: 'badge-danger',
+      completed: 'badge-success', cancelled: 'badge-danger', confirmed: 'badge-info',
+      'badge-info': 'badge-info'
+    };
+    return `<span class="badge ${map[status] || 'badge-muted'}">${status}</span>`;
+  }
+
+  function typeBadge(type) {
+    const colors = {
+      'Surface': 'badge-info', 'Multi-Storey': 'badge-primary',
+      'Underground': 'badge-warning', 'Basement': 'badge-muted'
+    };
+    return `<span class="badge ${colors[type] || 'badge-muted'}">${type}</span>`;
+  }
+
+  function maskName(name) {
+    if (!name) return '—';
+    return name.split(' ').map(w => w[0] + '***').join(' ');
+  }
+
+  function relativeTime(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  }
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function occupancyClass(pct) {
+    if (pct < 50) return 'fill-low';
+    if (pct < 80) return 'fill-med';
+    return 'fill-high';
+  }
+
+  // ── Overview ─────────────────────────────────────────────────
+  function renderOverview() {
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const activeLots = lots.filter(l => l.status === 'active');
+    const totalSpaces = lots.reduce((s, l) => s + (l.totalSpaces || 0), 0);
+    const apps = DB.Applications.byOwner(user.id);
+    const pendingApps = apps.filter(a => a.status === 'pending').length;
+
+    // All bookings for owner lots
+    const ownerLotIds = lots.map(l => l.id);
+    const allBookings = lots.flatMap(l => (DB.Bookings.byLot ? DB.Bookings.byLot(l.id) : []));
+
+    const today = todayStr();
+    const bookingsToday = allBookings.filter(b => b.startTime && b.startTime.includes(today)).length;
+
+    const thisMonth = new Date().toISOString().slice(0, 7);
+    const monthEarnings = allBookings
+      .filter(b => b.status === 'completed' && b.startTime && b.startTime.includes(thisMonth))
+      .reduce((s, b) => s + (b.totalAmount || 0), 0);
+
+    const stats = [
+      { icon: '🏢', label: 'Total Lots',       value: lots.length },
+      { icon: '✅', label: 'Active Lots',       value: activeLots.length },
+      { icon: '🚗', label: 'Total Spaces',      value: totalSpaces },
+      { icon: '⏳', label: 'Pending Apps',      value: pendingApps },
+      { icon: '📦', label: 'Bookings Today',    value: bookingsToday },
+      { icon: '💰', label: 'Monthly Earnings',  value: `₹${monthEarnings.toLocaleString()}` }
+    ];
+
+    document.getElementById('overview-stats').innerHTML = stats.map(s => `
+      <div class="stat-card">
+        <div class="stat-icon">${s.icon}</div>
+        <div class="stat-value">${s.value}</div>
+        <div class="stat-label">${s.label}</div>
+      </div>
+    `).join('');
+
+    // Lot summary
+    document.getElementById('overview-lots').innerHTML = lots.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">🅿️</div><p>No lots registered yet.</p></div>`
+      : lots.map(lot => {
+          const avail = lot.availableSpaces !== undefined ? lot.availableSpaces : lot.totalSpaces;
+          const total = lot.totalSpaces || 1;
+          const occ = Math.round(((total - avail) / total) * 100);
+          return `
+          <div class="lot-summary-card">
+            <div class="flex-between mb-8">
+              <strong>${lot.name}</strong>
+              ${typeBadge(lot.type || 'Surface')}
+            </div>
+            <div class="lot-card-addr">📍 ${lot.address || '—'}</div>
+            <div class="mt-12">
+              <div class="flex-between mb-8">
+                <small class="text-muted">${avail} / ${total} spaces</small>
+                <small class="text-muted">${occ}%</small>
+              </div>
+              <div class="occupancy-bar">
+                <div class="occupancy-fill ${occupancyClass(occ)}" style="width:${occ}%"></div>
+              </div>
+            </div>
+            <div class="flex-between mt-12">
+              <span class="text-warning">₹${lot.pricePerHour || 0}/hr</span>
+              ${statusBadge(lot.status || 'active')}
+            </div>
+          </div>`;
+        }).join('');
+
+    // Recent bookings (last 5)
+    const recent = [...allBookings].sort((a, b) => new Date(b.createdAt || b.startTime) - new Date(a.createdAt || a.startTime)).slice(0, 5);
+    const lotMap = {};
+    lots.forEach(l => lotMap[l.id] = l.name);
+
+    document.getElementById('overview-bookings-body').innerHTML = recent.length === 0
+      ? `<tr><td colspan="6" class="text-dim" style="text-align:center;padding:24px;">No bookings yet.</td></tr>`
+      : recent.map(b => `
+        <tr>
+          <td><code>${(b.id || '').slice(0, 8)}</code></td>
+          <td>${lotMap[b.lotId] || '—'}</td>
+          <td>${b.vehicleNumber || '—'}</td>
+          <td>${b.startTime ? new Date(b.startTime).toLocaleDateString() : '—'}</td>
+          <td>₹${b.totalAmount || 0}</td>
+          <td>${statusBadge(b.status || 'pending')}</td>
+        </tr>`).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  // ── Register Lot ─────────────────────────────────────────────
+  let regMap = null, regMarker = null;
+
+  function initRegMap() {
+    if (regMap) return;
+    try {
+      regMap = MapEngine.initMap('reg-map', 13.0827, 80.2707, 12);
+      regMap.on('click', e => {
+        document.getElementById('reg-lat').value = e.latlng.lat.toFixed(6);
+        document.getElementById('reg-lng').value = e.latlng.lng.toFixed(6);
+        if (regMarker) regMarker.setLatLng(e.latlng);
+        else {
+          regMarker = L.marker(e.latlng, { draggable: true }).addTo(regMap);
+          regMarker.on('dragend', ev => {
+            document.getElementById('reg-lat').value = ev.target.getLatLng().lat.toFixed(6);
+            document.getElementById('reg-lng').value = ev.target.getLatLng().lng.toFixed(6);
+          });
+        }
+      });
+    } catch(e) { console.warn('Map init failed', e); }
+  }
+
+  function geocodeRegAddress() {
+    const addr = document.getElementById('reg-address').value.trim();
+    if (!addr || !regMap) return;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`)
+      .then(r => r.json()).then(results => {
+        if (!results.length) { showToast('Address not found', 'error'); return; }
+        const { lat, lon } = results[0];
+        const ll = L.latLng(parseFloat(lat), parseFloat(lon));
+        regMap.setView(ll, 15);
+        document.getElementById('reg-lat').value = parseFloat(lat).toFixed(6);
+        document.getElementById('reg-lng').value = parseFloat(lon).toFixed(6);
+        if (regMarker) regMarker.setLatLng(ll);
+        else {
+          regMarker = L.marker(ll, { draggable: true }).addTo(regMap);
+          regMarker.on('dragend', ev => {
+            document.getElementById('reg-lat').value = ev.target.getLatLng().lat.toFixed(6);
+            document.getElementById('reg-lng').value = ev.target.getLatLng().lng.toFixed(6);
+          });
+        }
+      }).catch(() => showToast('Geocode error', 'error'));
+  }
+
+  document.getElementById('form-register-lot').addEventListener('submit', e => {
+    e.preventDefault();
+    const amenities = [...document.querySelectorAll('#form-register-lot input[type=checkbox]:checked')].map(c => c.value);
+    const data = {
+      ownerId: user.id,
+      name: document.getElementById('reg-name').value.trim(),
+      description: document.getElementById('reg-desc').value.trim(),
+      address: document.getElementById('reg-address').value.trim(),
+      lat: parseFloat(document.getElementById('reg-lat').value) || 13.0827,
+      lng: parseFloat(document.getElementById('reg-lng').value) || 80.2707,
+      totalSpaces: parseInt(document.getElementById('reg-spaces').value),
+      pricePerHour: parseFloat(document.getElementById('reg-price').value),
+      type: document.getElementById('reg-type').value,
+      operatingHours: document.getElementById('reg-hours').value.trim(),
+      amenities,
+      status: document.getElementById('reg-status').value
+    };
+    try {
+      DB.ParkingLots.create(data);
+      showToast('Lot registered!');
+      document.getElementById('form-register-lot').reset();
+      showPage('my-lots');
+    } catch(err) {
+      showToast(err.message || 'Failed to register lot', 'error');
+    }
+  });
+
+  // ── My Lots ──────────────────────────────────────────────────
+  function renderMyLots() {
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const grid = document.getElementById('my-lots-grid');
+    if (lots.length === 0) {
+      grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🅿️</div><p>You have no parking lots yet. <a href="#" onclick="showPage('register-lot')">Register one now!</a></p></div>`;
+      return;
+    }
+    grid.innerHTML = lots.map(lot => {
+      const avail = lot.availableSpaces !== undefined ? lot.availableSpaces : lot.totalSpaces;
+      const total = lot.totalSpaces || 1;
+      const occ = Math.round(((total - avail) / total) * 100);
+      const rating = lot.rating ? `★ ${lot.rating.toFixed(1)} (${lot.reviewCount || 0} reviews)` : '★ No ratings';
+      return `
+      <div class="lot-card" id="lot-card-${lot.id}">
+        <div class="lot-card-body">
+          <div class="flex-between mb-8">
+            <span class="lot-card-name">${lot.name}</span>
+            ${typeBadge(lot.type || 'Surface')}
+          </div>
+          <div class="lot-card-addr">📍 ${lot.address || '—'}</div>
+          <div class="mt-12">
+            <div class="flex-between mb-8">
+              <small class="text-muted">${avail} / ${total} spaces</small>
+              <small class="text-muted">${occ}%</small>
+            </div>
+            <div class="occupancy-bar">
+              <div class="occupancy-fill ${occupancyClass(occ)}" style="width:${occ}%"></div>
+            </div>
+          </div>
+          <div class="flex-between mt-12">
+            <span class="text-warning">₹${lot.pricePerHour || 0}/hr</span>
+            ${statusBadge(lot.status || 'active')}
+          </div>
+          <div class="text-dim mt-8" style="font-size:12px;">⏰ ${lot.operatingHours || 'N/A'} | ${rating}</div>
+          <div class="flex-gap-8 mt-12" style="align-items:center;">
+            <small class="text-muted">Adjust spaces:</small>
+            <button class="btn btn-ghost btn-sm" onclick="adjustSpaces('${lot.id}', -1)">−</button>
+            <span id="avail-${lot.id}">${avail}</span>
+            <button class="btn btn-ghost btn-sm" onclick="adjustSpaces('${lot.id}', 1)">+</button>
+          </div>
+        </div>
+        <div class="lot-card-footer">
+          <button class="btn btn-ghost btn-sm" onclick="editLot('${lot.id}')">✏️ Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleLotStatus('${lot.id}')">🔄 Toggle</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteLot('${lot.id}')">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function adjustSpaces(id, delta) {
+    try {
+      DB.ParkingLots.updateSpaces(id, delta);
+      const lot = DB.ParkingLots.find(id);
+      if (lot) {
+        const avail = lot.availableSpaces !== undefined ? lot.availableSpaces : lot.totalSpaces;
+        const el = document.getElementById('avail-' + id);
+        if (el) el.textContent = avail;
+      }
+    } catch(e) {
+      showToast(e.message || 'Cannot adjust spaces', 'error');
+    }
+  }
+
+  function toggleLotStatus(id) {
+    const lot = DB.ParkingLots.find(id);
+    if (!lot) return;
+    const newStatus = lot.status === 'active' ? 'inactive' : 'active';
+    DB.ParkingLots.update(id, { status: newStatus });
+    renderMyLots();
+    showToast(`Lot is now ${newStatus}`);
+  }
+
+  function deleteLot(id) {
+    if (!confirm('Delete this lot? This cannot be undone.')) return;
+    DB.ParkingLots.delete(id);
+    showToast('Lot deleted');
+    renderMyLots();
+  }
+
+  // ── IoT Bay Sensors & Telemetry ──────────────────────────────
+  let currentIotLotId = null;
+
+  function renderIoTSensors() {
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const select = document.getElementById('iot-lot-select');
+    const statsGrid = document.getElementById('iot-stats-grid');
+    const sensorGrid = document.getElementById('iot-sensor-grid');
+    const bayCountEl = document.getElementById('iot-bay-count');
+
+    if (!lots || lots.length === 0) {
+      if (select) select.innerHTML = `<option value="">No lots registered</option>`;
+      if (statsGrid) statsGrid.innerHTML = '';
+      if (sensorGrid) sensorGrid.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1;">
+          <div class="empty-icon">🅿️</div>
+          <p>Please register a parking lot first to configure IoT sensors.</p>
+        </div>`;
+      return;
+    }
+
+    // Set or preserve selected lot
+    if (!currentIotLotId || !lots.some(l => l.id === currentIotLotId)) {
+      currentIotLotId = lots[0].id;
+    }
+
+    if (select) {
+      select.innerHTML = lots.map(l => `<option value="${l.id}" ${l.id === currentIotLotId ? 'selected' : ''}>${l.name} (${l.availableSpaces !== undefined ? l.availableSpaces : l.totalSpaces}/${l.totalSpaces} free)</option>`).join('');
+    }
+
+    const currentLot = DB.ParkingLots.find(currentIotLotId) || lots[0];
+    const sensors = DB.Sensors.byLot(currentLot.id);
+
+    // Compute metrics
+    const totalSensors = sensors.length;
+    const vacantSensors = sensors.filter(s => s.status === 'vacant').length;
+    const occupiedSensors = sensors.filter(s => s.status === 'occupied').length;
+    const avgBattery = totalSensors > 0
+      ? Math.round(sensors.reduce((acc, s) => acc + (s.batteryLevel || 95), 0) / totalSensors)
+      : 100;
+    const avgRssi = totalSensors > 0
+      ? Math.round(sensors.reduce((acc, s) => acc + (s.signalRssi || -55), 0) / totalSensors)
+      : -50;
+
+    const availSpaces = currentLot.availableSpaces !== undefined ? currentLot.availableSpaces : currentLot.totalSpaces;
+    const occPct = Math.round(((currentLot.totalSpaces - availSpaces) / currentLot.totalSpaces) * 100);
+
+    // Render Stats
+    const stats = [
+      { icon: '📡', label: 'IoT Sensor Nodes', value: totalSensors },
+      { icon: '🟢', label: 'Live Vacant Bays', value: vacantSensors },
+      { icon: '🔴', label: 'Live Occupied Bays', value: occupiedSensors },
+      { icon: '🔋', label: 'Avg Fleet Battery', value: `${avgBattery}%` },
+      { icon: '📶', label: 'Avg Signal RSSI', value: `${avgRssi} dBm` },
+      { icon: '🚗', label: 'Lot Live Spaces', value: `${availSpaces}/${currentLot.totalSpaces} (${occPct}%)` }
+    ];
+
+    if (statsGrid) {
+      statsGrid.innerHTML = stats.map(s => `
+        <div class="stat-card">
+          <div class="stat-icon">${s.icon}</div>
+          <div class="stat-value">${s.value}</div>
+          <div class="stat-label">${s.label}</div>
+        </div>
+      `).join('');
+    }
+
+    if (bayCountEl) bayCountEl.textContent = totalSensors;
+
+    // Render Grid
+    if (sensorGrid) {
+      if (sensors.length === 0) {
+        sensorGrid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="empty-icon">📡</div>
+            <p>No IoT sensors paired for <b>${currentLot.name}</b> yet.</p>
+            <p style="margin-top:8px;"><button class="btn btn-warning btn-sm" onclick="openAddSensorModal()">➕ Pair First Sensor Node</button></p>
+          </div>`;
+        return;
+      }
+
+      sensorGrid.innerHTML = sensors.map(s => {
+        const isVacant = s.status === 'vacant';
+        const statusClass = isVacant ? 'vacant' : 'occupied';
+        const badgeClass = isVacant ? 'badge-vacant' : 'badge-occupied';
+        const statusText = isVacant ? 'Vacant' : 'Occupied';
+        const pulseColor = isVacant ? '#22c55e' : '#ef4444';
+        const battColor = (s.batteryLevel || 95) > 30 ? '#4ade80' : '#f87171';
+
+        return `
+          <div class="sensor-card ${statusClass}" onclick="toggleSensorSlot('${s.id}')" title="Click to simulate car parking / exiting this bay">
+            <div class="flex-between">
+              <div>
+                <strong style="font-size:16px;color:#fff;">Bay ${s.slotCode || s.id}</strong>
+                <div style="font-size:11px;color:var(--text-muted);">${s.floor || 'Ground Floor'}</div>
+              </div>
+              <span class="sensor-badge-status ${badgeClass}">
+                <span class="pulse-dot" style="color:${pulseColor};background:${pulseColor};"></span>
+                ${statusText}
+              </span>
+            </div>
+
+            <div style="margin:6px 0;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,0.3);font-size:12px;">
+              ${isVacant 
+                ? `<span style="color:#4ade80;">🟢 Ready for Vehicle</span>` 
+                : `<span style="color:#f87171;font-weight:600;">🚗 ${s.vehiclePlate || 'Vehicle Parked'}</span>`
+              }
+            </div>
+
+            <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;margin-top:2px;">
+              <div class="sensor-metric">
+                <span>Hardware ID</span>
+                <strong>${s.hardwareId || 'SN-' + s.id.slice(0, 6)}</strong>
+              </div>
+              <div class="sensor-metric">
+                <span>Tech Type</span>
+                <span>${s.sensorType || 'Magnetic In-Ground'}</span>
+              </div>
+              <div class="sensor-metric">
+                <span>Battery Level</span>
+                <span style="color:${battColor};font-weight:600;">🔋 ${s.batteryLevel || 95}%</span>
+              </div>
+              <div class="sensor-metric">
+                <span>Signal RSSI</span>
+                <span>📶 ${s.signalRssi || -55} dBm</span>
+              </div>
+              <div class="sensor-metric">
+                <span>Heartbeat</span>
+                <span>${relativeTime(s.lastHeartbeat)}</span>
+              </div>
+            </div>
+
+            <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
+              <small style="font-size:11px;color:var(--text-dim);">Tap slot to toggle</small>
+              <button class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:11px;color:#ef4444;" onclick="deleteSensorSlot(event, '${s.id}')" title="Delete sensor node">🗑️</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  function onIotLotChange() {
+    const sel = document.getElementById('iot-lot-select');
+    if (sel) {
+      currentIotLotId = sel.value;
+      renderIoTSensors();
+    }
+  }
+
+  function toggleSensorSlot(sensorId) {
+    const updated = DB.Sensors.toggleStatus(sensorId);
+    if (updated) {
+      const lot = DB.ParkingLots.find(updated.lotId);
+      const stateStr = updated.status.toUpperCase();
+      const plateStr = updated.vehiclePlate ? ` [${updated.vehiclePlate}]` : '';
+      showToast(`Bay ${updated.slotCode} is now ${stateStr}${plateStr}. Lot spaces synchronized to ${lot ? lot.availableSpaces : '—'}!`);
+      renderIoTSensors();
+    }
+  }
+
+  function deleteSensorSlot(e, sensorId) {
+    e.stopPropagation();
+    if (!confirm('Unpair and delete this IoT sensor node?')) return;
+    DB.Sensors.delete(sensorId);
+    showToast('Sensor node removed');
+    renderIoTSensors();
+  }
+
+  function simulateVehicleArrival() {
+    if (!currentIotLotId) return;
+    const sensors = DB.Sensors.byLot(currentIotLotId).filter(s => s.status === 'vacant');
+    if (!sensors.length) {
+      showToast('All bays are currently occupied in this lot!', 'warning');
+      return;
+    }
+    const target = sensors[Math.floor(Math.random() * sensors.length)];
+    const updated = DB.Sensors.toggleStatus(target.id);
+    showToast(`Vehicle arrived at Bay ${target.slotCode} (${updated.vehiclePlate})`);
+    renderIoTSensors();
+  }
+
+  function simulateVehicleDeparture() {
+    if (!currentIotLotId) return;
+    const sensors = DB.Sensors.byLot(currentIotLotId).filter(s => s.status === 'occupied');
+    if (!sensors.length) {
+      showToast('All bays are already vacant in this lot!', 'warning');
+      return;
+    }
+    const target = sensors[Math.floor(Math.random() * sensors.length)];
+    DB.Sensors.toggleStatus(target.id);
+    showToast(`Vehicle exited Bay ${target.slotCode}`);
+    renderIoTSensors();
+  }
+
+  function randomizeSensors() {
+    if (!currentIotLotId) return;
+    DB.Sensors.bulkSimulate(currentIotLotId, 'random');
+    showToast('Randomized telemetry fluctuations across all bays');
+    renderIoTSensors();
+  }
+
+  function vacateAllSensors() {
+    if (!currentIotLotId) return;
+    DB.Sensors.bulkSimulate(currentIotLotId, 'vacate_all');
+    showToast('All sensor bays set to VACANT');
+    renderIoTSensors();
+  }
+
+  function openAddSensorModal() {
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const sel = document.getElementById('sensor-lot-id');
+    if (sel) {
+      sel.innerHTML = lots.map(l => `<option value="${l.id}" ${l.id === currentIotLotId ? 'selected' : ''}>${l.name}</option>`).join('');
+    }
+    // Generate auto hardware ID suggestion
+    const randId = Math.floor(100 + Math.random() * 900);
+    const codeInp = document.getElementById('sensor-slot-code');
+    const hwInp = document.getElementById('sensor-hardware-id');
+    if (codeInp) codeInp.value = '';
+    if (hwInp) hwInp.value = `SN-MAG-${randId}`;
+
+    openModal('modal-add-sensor');
+  }
+
+  function submitAddSensor(e) {
+    e.preventDefault();
+    const lotId = document.getElementById('sensor-lot-id').value;
+    const slotCode = document.getElementById('sensor-slot-code').value.trim();
+    const floor = document.getElementById('sensor-floor').value.trim();
+    const sensorType = document.getElementById('sensor-type').value;
+    const hardwareId = document.getElementById('sensor-hardware-id').value.trim();
+    const status = document.getElementById('sensor-initial-status').value;
+
+    if (!lotId || !slotCode || !hardwareId) {
+      showToast('Please fill all required fields', 'error');
+      return;
+    }
+
+    DB.Sensors.create({
+      lotId,
+      slotCode,
+      floor,
+      sensorType,
+      hardwareId,
+      status,
+      batteryLevel: Math.floor(92 + Math.random() * 8),
+      signalRssi: -Math.floor(45 + Math.random() * 25)
+    });
+
+    closeModal('modal-add-sensor');
+    document.getElementById('form-add-sensor').reset();
+    showToast(`Sensor node ${slotCode} successfully paired!`);
+    currentIotLotId = lotId;
+    renderIoTSensors();
+  }
+
+  // ── Edit Lot Modal ───────────────────────────────────────────
+  let editingLotId = null;
+  let editMap = null, editMarker = null;
+
+  function editLot(id) {
+    const lot = DB.ParkingLots.find(id);
+    if (!lot) return;
+    editingLotId = id;
+    document.getElementById('edit-name').value    = lot.name || '';
+    document.getElementById('edit-desc').value    = lot.description || '';
+    document.getElementById('edit-address').value = lot.address || '';
+    document.getElementById('edit-lat').value     = lot.lat || '';
+    document.getElementById('edit-lng').value     = lot.lng || '';
+    document.getElementById('edit-spaces').value  = lot.totalSpaces || '';
+    document.getElementById('edit-price').value   = lot.pricePerHour || '';
+    document.getElementById('edit-hours').value   = lot.operatingHours || '';
+    document.getElementById('edit-type').value    = lot.type || 'Surface';
+    document.getElementById('edit-status').value  = lot.status || 'active';
+
+    // Amenities
+    document.querySelectorAll('#edit-amenities input[type=checkbox]').forEach(cb => {
+      cb.checked = (lot.amenities || []).includes(cb.value);
+    });
+
+    openModal('modal-edit-lot');
+
+    // Lazy init edit map
+    setTimeout(() => {
+      if (!editMap) {
+        try {
+          const lat = lot.lat || 13.0827;
+          const lng = lot.lng || 80.2707;
+          editMap = MapEngine.initMap('edit-map', lat, lng, 13);
+          editMarker = L.marker([lat, lng], { draggable: true }).addTo(editMap);
+          editMarker.on('dragend', ev => {
+            document.getElementById('edit-lat').value = ev.target.getLatLng().lat.toFixed(6);
+            document.getElementById('edit-lng').value = ev.target.getLatLng().lng.toFixed(6);
+          });
+          editMap.on('click', e => {
+            document.getElementById('edit-lat').value = e.latlng.lat.toFixed(6);
+            document.getElementById('edit-lng').value = e.latlng.lng.toFixed(6);
+            editMarker.setLatLng(e.latlng);
+          });
+        } catch(e) { console.warn('Edit map init failed', e); }
+      } else {
+        const lat = lot.lat || 13.0827;
+        const lng = lot.lng || 80.2707;
+        editMap.setView([lat, lng], 13);
+        if (editMarker) editMarker.setLatLng([lat, lng]);
+      }
+      if (editMap) editMap.invalidateSize();
+    }, 150);
+  }
+
+  function geocodeEditAddress() {
+    const addr = document.getElementById('edit-address').value.trim();
+    if (!addr || !editMap) return;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`)
+      .then(r => r.json()).then(results => {
+        if (!results.length) { showToast('Address not found', 'error'); return; }
+        const { lat, lon } = results[0];
+        const ll = L.latLng(parseFloat(lat), parseFloat(lon));
+        editMap.setView(ll, 15);
+        document.getElementById('edit-lat').value = parseFloat(lat).toFixed(6);
+        document.getElementById('edit-lng').value = parseFloat(lon).toFixed(6);
+        if (editMarker) editMarker.setLatLng(ll);
+      }).catch(() => showToast('Geocode error', 'error'));
+  }
+
+  function saveEditLot() {
+    if (!editingLotId) return;
+    const amenities = [...document.querySelectorAll('#edit-amenities input[type=checkbox]:checked')].map(c => c.value);
+    const data = {
+      name: document.getElementById('edit-name').value.trim(),
+      description: document.getElementById('edit-desc').value.trim(),
+      address: document.getElementById('edit-address').value.trim(),
+      lat: parseFloat(document.getElementById('edit-lat').value) || undefined,
+      lng: parseFloat(document.getElementById('edit-lng').value) || undefined,
+      totalSpaces: parseInt(document.getElementById('edit-spaces').value),
+      pricePerHour: parseFloat(document.getElementById('edit-price').value),
+      type: document.getElementById('edit-type').value,
+      operatingHours: document.getElementById('edit-hours').value.trim(),
+      amenities,
+      status: document.getElementById('edit-status').value
+    };
+    try {
+      DB.ParkingLots.update(editingLotId, data);
+      showToast('Lot updated!');
+      closeModal('modal-edit-lot');
+      renderMyLots();
+    } catch(e) {
+      showToast(e.message || 'Update failed', 'error');
+    }
+  }
+
+  // ── Browse Events ────────────────────────────────────────────
+  let applyTargetEvent = null;
+
+  function renderEvents() {
+    const events = DB.Events.upcoming ? DB.Events.upcoming() : (DB.Events.all ? DB.Events.all() : []);
+    const grid = document.getElementById('events-grid');
+    if (!events || events.length === 0) {
+      grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🎭</div><p>No upcoming events found.</p></div>`;
+      return;
+    }
+    grid.innerHTML = events.map(ev => `
+      <div class="event-card">
+        <div class="flex-between">
+          <div class="event-name">${ev.name}</div>
+          <span class="badge badge-primary">${ev.type || 'Event'}</span>
+        </div>
+        <div class="event-meta">
+          <span>📍 ${ev.venue || ev.location || '—'}</span>
+          <span>📅 ${ev.date ? new Date(ev.date).toLocaleDateString() : '—'} ${ev.time || ''}</span>
+          <span>👥 Expected: ${(ev.expectedVisitors || ev.capacity || '—').toLocaleString()}</span>
+        </div>
+        <p class="text-muted" style="font-size:13px;">${(ev.description || '').slice(0, 120)}${(ev.description || '').length > 120 ? '…' : ''}</p>
+        <div style="display:flex;gap:8px;align-self:flex-start;margin-top:6px;">
+          <button class="btn btn-warning btn-sm" style="background:linear-gradient(135deg,var(--warning),#d97706);"
+            onclick="openApplyModal(${JSON.stringify(ev).replace(/"/g, '&quot;')})">
+            📋 Apply with My Lot
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="viewEventDetails('${ev.id}')">
+            👁️ View Event
+          </button>
+        </div>
+      </div>
+    `).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function openApplyModal(ev) {
+    applyTargetEvent = ev;
+    document.getElementById('modal-apply-title').textContent = `Apply for "${ev.name}"`;
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const sel = document.getElementById('apply-lot-select');
+    sel.innerHTML = lots.length === 0
+      ? `<option value="">No lots registered</option>`
+      : lots.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    document.getElementById('apply-message').value = '';
+    openModal('modal-apply');
+  }
+
+  function submitApplication() {
+    if (!applyTargetEvent) return;
+    const lotId = document.getElementById('apply-lot-select').value;
+    const message = document.getElementById('apply-message').value.trim();
+    if (!lotId) { showToast('Please register a lot first', 'error'); return; }
+    const lot = DB.ParkingLots.find(lotId);
+    try {
+      DB.Applications.create({
+        lotId,
+        ownerId: user.id,
+        eventId: applyTargetEvent.id,
+        organiserId: applyTargetEvent.organiserId,
+        message
+      });
+      // Notify organiser
+      if (DB.Notifications && DB.Notifications.push) {
+        DB.Notifications.push(
+          applyTargetEvent.organiserId,
+          `${user.name} applied with lot "${lot ? lot.name : lotId}" for "${applyTargetEvent.name}"`,
+          'application'
+        );
+      }
+      showToast('Application submitted!');
+      closeModal('modal-apply');
+    } catch(err) {
+      showToast(err.message || 'Failed to submit application', 'error');
+    }
+  }
+
+  // ── My Applications ──────────────────────────────────────────
+  function renderApps(filter) {
+    let apps = DB.Applications.byOwner(user.id);
+    if (filter !== 'All') apps = apps.filter(a => a.status === filter);
+
+    const list = document.getElementById('apps-list');
+    if (apps.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>No applications found.</p></div>`;
+      return;
+    }
+    list.innerHTML = apps.map(a => {
+      const ev  = DB.Events.find ? DB.Events.find(a.eventId) : null;
+      const lot = DB.ParkingLots.find(a.lotId);
+      return `
+      <div class="app-card">
+        <div class="app-card-info">
+          <div style="font-weight:700;font-size:15px;">${ev ? ev.name : (a.eventId || '—')}</div>
+          <div class="text-muted" style="font-size:13px;margin-top:4px;">
+            🅿️ ${lot ? lot.name : '—'} &nbsp;•&nbsp;
+            📅 ${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—'}
+          </div>
+          ${a.message ? `<p class="text-dim" style="font-size:12px;margin-top:6px;">"${a.message.slice(0, 100)}${a.message.length > 100 ? '…' : ''}"</p>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+          ${statusBadge(a.status || 'pending')}
+          <button class="btn btn-ghost btn-sm" onclick="viewEventDetails('${a.eventId}')">👁️ View Details</button>
+        </div>
+      </div>`;
+    }).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function viewEventDetails(eventId) {
+    const ev = DB.Events.find(eventId);
+    if (!ev) { showToast('Event details not found', 'error'); return; }
+    const organiser = DB.Users.find(ev.organiserId) || { name: 'Event Organiser' };
+    document.getElementById('modal-ev-name').textContent = ev.name;
+    document.getElementById('modal-ev-content').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;margin-bottom:16px;">
+        <div><span class="text-muted">Type:</span> <b>${ev.eventType || ev.type || 'Event'}</b></div>
+        <div><span class="text-muted">Status:</span> <b>${ev.status || 'upcoming'}</b></div>
+        <div><span class="text-muted">Venue:</span> <b>${ev.venue || '—'}</b></div>
+        <div><span class="text-muted">Address:</span> <b>${ev.address || '—'}</b></div>
+        <div><span class="text-muted">Date:</span> <b>${ev.date ? new Date(ev.date).toLocaleDateString() : '—'}</b></div>
+        <div><span class="text-muted">Time:</span> <b>${ev.startTime || ''} – ${ev.endTime || ''}</b></div>
+        <div><span class="text-muted">Expected Visitors:</span> <b>${(ev.expectedVisitors || 0).toLocaleString()}</b></div>
+        <div><span class="text-muted">Approved Lots:</span> <b>${(ev.approvedParkingLots || []).length}</b></div>
+      </div>
+      ${ev.description ? `<p class="text-muted" style="font-size:13px;line-height:1.5;background:rgba(255,255,255,0.03);padding:12px;border-radius:8px;border:1px solid var(--border);">${ev.description}</p>` : ''}
+    `;
+    openModal('modal-event-detail');
+  }
+
+  function filterApps(tab, el) {
+    document.querySelectorAll('#app-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderApps(tab);
+  }
+
+  // ── Bookings ─────────────────────────────────────────────────
+  function renderBookings(statusFilter) {
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const lotMap = {};
+    lots.forEach(l => lotMap[l.id] = l.name);
+    const allBookings = lots.flatMap(l => (DB.Bookings.byLot ? DB.Bookings.byLot(l.id) : []));
+    const filtered = allBookings.filter(b => {
+      if (statusFilter === 'active') return b.status === 'active' || b.status === 'confirmed';
+      return b.status === statusFilter;
+    });
+
+    const tbody = document.getElementById('bookings-body');
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-dim" style="text-align:center;padding:24px;">No bookings found.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = filtered.map(b => {
+      const cust = DB.Users && DB.Users.find ? DB.Users.find(b.userId) : null;
+      const custName = cust ? maskName(cust.name) : '—';
+      const dur = b.startTime && b.endTime
+        ? ((new Date(b.endTime) - new Date(b.startTime)) / 3600000).toFixed(1)
+        : '—';
+      return `<tr>
+        <td><code>${(b.id || '').slice(0, 8)}…</code></td>
+        <td>${lotMap[b.lotId] || '—'}</td>
+        <td>${custName}</td>
+        <td>${b.vehicleNumber || '—'}</td>
+        <td>${b.startTime ? new Date(b.startTime).toLocaleDateString() : '—'}</td>
+        <td>${dur} hrs</td>
+        <td>₹${b.totalAmount || 0}</td>
+        <td>${statusBadge(b.status || 'pending')}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filterBookings(status, el) {
+    document.querySelectorAll('.tab-bar .tab-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderBookings(status);
+  }
+
+  // ── Earnings ─────────────────────────────────────────────────
+  let earningsChartInst = null;
+
+  function renderEarnings() {
+    const lots = DB.ParkingLots.byOwner(user.id);
+    const allBookings = lots.flatMap(l => (DB.Bookings.byLot ? DB.Bookings.byLot(l.id) : []));
+    const completed = allBookings.filter(b => b.status === 'completed');
+
+    function sumByDateRange(start, end) {
+      return completed.filter(b => {
+        const d = new Date(b.startTime);
+        return d >= start && d <= end;
+      }).reduce((s, b) => s + (b.totalAmount || 0), 0);
+    }
+
+    const now = new Date();
+    const todayStart = new Date(now.toISOString().slice(0, 10));
+    const weekStart  = new Date(now); weekStart.setDate(now.getDate() - 7);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const allTime    = completed.reduce((s, b) => s + (b.totalAmount || 0), 0);
+
+    const earningsData = [
+      { label: 'Today',      value: sumByDateRange(todayStart, now) },
+      { label: 'This Week',  value: sumByDateRange(weekStart, now) },
+      { label: 'This Month', value: sumByDateRange(monthStart, now) },
+      { label: 'All Time',   value: allTime }
+    ];
+
+    document.getElementById('earnings-stats').innerHTML = earningsData.map(e => `
+      <div class="earn-card">
+        <div class="earn-label">${e.label}</div>
+        <div class="earn-value">₹${e.value.toLocaleString()}</div>
+      </div>
+    `).join('');
+
+    // Chart – last 30 days
+    const last30 = [];
+    const labels = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      labels.push(ds.slice(5)); // MM-DD
+      const sum = completed.filter(b => b.startTime && b.startTime.includes(ds))
+                           .reduce((s, b) => s + (b.totalAmount || 0), 0);
+      last30.push(sum);
+    }
+
+    if (earningsChartInst) { earningsChartInst.destroy(); earningsChartInst = null; }
+    const ctx = document.getElementById('earningsChart').getContext('2d');
+    earningsChartInst = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Daily Earnings (₹)',
+          data: last30,
+          backgroundColor: 'rgba(245,158,11,0.8)',
+          borderColor: 'rgba(245,158,11,1)',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { labels: { color: '#94a3b8' } },
+          tooltip: { callbacks: { label: ctx => `₹${ctx.parsed.y}` } }
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y: { ticks: { color: '#64748b', callback: v => '₹' + v }, grid: { color: 'rgba(255,255,255,0.06)' } }
+        }
+      }
+    });
+
+    // Per-lot table
+    const lotMap = {};
+    lots.forEach(l => lotMap[l.id] = l);
+    const tbody = document.getElementById('earnings-lot-table');
+    tbody.innerHTML = lots.length === 0
+      ? `<tr><td colspan="4" class="text-dim" style="text-align:center;padding:24px;">No lots found.</td></tr>`
+      : lots.map(lot => {
+          const lotBookings = completed.filter(b => b.lotId === lot.id);
+          const rev = lotBookings.reduce((s, b) => s + (b.totalAmount || 0), 0);
+          const rating = lot.rating ? lot.rating.toFixed(1) : '—';
+          return `<tr>
+            <td>${lot.name}</td>
+            <td>${lotBookings.length}</td>
+            <td>₹${rev.toLocaleString()}</td>
+            <td>★ ${rating}</td>
+          </tr>`;
+        }).join('');
+  }
+
+  // ── Notifications ────────────────────────────────────────────
+  function renderNotifications() {
+    const notes = DB.Notifications.forUser(user.id);
+    const list = document.getElementById('notif-list');
+    if (!notes || notes.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div><p>No notifications yet.</p></div>`;
+      return;
+    }
+    const sorted = [...notes].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    list.innerHTML = sorted.map(n => {
+      const icon = n.type === 'booking' ? '📦' : n.type === 'application' ? '📋' : 'ℹ️';
+      return `
+      <div class="notif-item ${n.read ? '' : 'unread'}" id="notif-${n.id}" onclick="markOneRead('${n.id}')">
+        <div class="notif-icon">${icon}</div>
+        <div style="flex:1;">
+          <div class="notif-msg">${n.message || ''}</div>
+          <div class="notif-time">${relativeTime(n.createdAt)}</div>
+        </div>
+        ${!n.read ? `<span style="width:8px;height:8px;background:var(--role-owner);border-radius:50%;flex-shrink:0;margin-top:6px;"></span>` : ''}
+      </div>`;
+    }).join('');
+    updateNotifBadge();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  function markOneRead(id) {
+    DB.Notifications.markRead(id);
+    const el = document.getElementById('notif-' + id);
+    if (el) {
+      el.classList.remove('unread');
+      const dot = el.querySelector('span[style*="var(--role-owner)"]');
+      if (dot) dot.remove();
+    }
+    updateNotifBadge();
+  }
+
+  function markAllRead() {
+    DB.Notifications.markAllRead(user.id);
+    renderNotifications();
+    showToast('All notifications marked as read');
+  }
+
+  // ── Profile ──────────────────────────────────────────────────
+  function renderProfile() {
+    document.getElementById('prof-name').value  = user.name  || '';
+    document.getElementById('prof-email').value = user.email || '';
+    document.getElementById('prof-phone').value = user.phone || '';
+  }
+
+  document.getElementById('form-profile').addEventListener('submit', e => {
+    e.preventDefault();
+    const name  = document.getElementById('prof-name').value.trim();
+    const email = document.getElementById('prof-email').value.trim();
+    const phone = document.getElementById('prof-phone').value.trim();
+    DB.Users.update(user.id, { name, email, phone });
+    // Update session
+    user.name = name; user.email = email; user.phone = phone;
+    try {
+      const sess = JSON.parse(sessionStorage.getItem('evetramasy_session') || '{}');
+      sess.name = name; sess.email = email; sess.phone = phone;
+      sessionStorage.setItem('evetramasy_session', JSON.stringify(sess));
+    } catch(_) {}
+    initSidebar();
+    showToast('Profile updated!');
+  });
+
+  document.getElementById('form-password').addEventListener('submit', e => {
+    e.preventDefault();
+    const oldPass     = document.getElementById('prof-old-pass').value;
+    const newPass     = document.getElementById('prof-new-pass').value;
+    const confirmPass = document.getElementById('prof-confirm-pass').value;
+    if (!newPass) { showToast('New password cannot be empty', 'error'); return; }
+    if (newPass !== confirmPass) { showToast('Passwords do not match', 'error'); return; }
+    // Verify old password
+    const dbUser = DB.Users.find(user.id);
+    if (dbUser && dbUser.password && dbUser.password !== oldPass) {
+      showToast('Current password is incorrect', 'error'); return;
+    }
+    try {
+      DB.Users.resetPassword(user.username, newPass);
+      document.getElementById('form-password').reset();
+      showToast('Password updated!');
+    } catch(err) {
+      showToast(err.message || 'Failed to update password', 'error');
+    }
+  });
+
+  // ── Modal helpers ────────────────────────────────────────────
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+  }
+  // Close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => {
+      if (e.target === m) m.classList.remove('open');
+    });
+  });
+
+  // ── Init ─────────────────────────────────────────────────────
+  initSidebar();
+  renderOverview();
+
+</script>
+</body>
+</html>

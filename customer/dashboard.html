@@ -1,0 +1,2669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EVETRAMASY — Customer Dashboard</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <!-- Design System -->
+  <link rel="stylesheet" href="../css/main.css"/>
+
+  <style>
+    /* ─── Dashboard Layout ──────────────────────────────────────────────── */
+    .dashboard-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ─── Sidebar ───────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: rgba(15,15,34,0.95);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      backdrop-filter: blur(20px);
+      z-index: 100;
+    }
+    .sidebar-header {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-brand {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 900;
+      font-size: 1.3rem;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--teal) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+      margin-bottom: 2px;
+    }
+    .sidebar-subtitle {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--teal));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .user-info { min-width: 0; }
+    .user-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .user-role {
+      font-size: 0.72rem;
+      color: var(--role-customer);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: var(--transition);
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      position: relative;
+    }
+    .nav-item:hover {
+      background: var(--bg-card-hover);
+      color: var(--text);
+    }
+    .nav-item.active {
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(20,184,166,0.1));
+      color: var(--primary);
+      border: 1px solid rgba(99,102,241,0.2);
+    }
+    .nav-item.active .nav-icon { color: var(--primary); }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--danger);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 999px;
+      min-width: 18px;
+      text-align: center;
+    }
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--text-dim);
+    }
+    .nav-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 6px 10px;
+    }
+    .nav-item.logout { color: var(--danger); margin-top: auto; }
+    .nav-item.logout:hover { background: rgba(239,68,68,0.1); }
+
+    /* ─── Main Content ──────────────────────────────────────────────────── */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(11,11,24,0.8);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar h2 { font-size: 1.25rem; font-weight: 700; }
+    .topbar-sub { color: var(--text-muted); font-size: 0.8rem; margin-top: 1px; }
+    .topbar-actions { margin-left: auto; display: flex; gap: 10px; }
+
+    /* ─── Pages ─────────────────────────────────────────────────────────── */
+    .page { display: none; padding: 28px; animation: fadeIn 0.2s ease; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── Stats Grid ────────────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: var(--transition);
+    }
+    .stat-card:hover { border-color: var(--primary-glow); transform: translateY(-2px); }
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+    .stat-value { font-size: 1.8rem; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-trend { font-size: 0.75rem; color: var(--success); }
+
+    /* ─── Tables ────────────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 12px 16px; text-align: left; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); }
+    td { padding: 13px 16px; font-size: 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-card); }
+
+    /* ─── Badges ────────────────────────────────────────────────────────── */
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.3px; }
+    .badge-active, .badge-upcoming    { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+    .badge-completed                  { background: rgba(99,102,241,0.15); color: var(--primary); border: 1px solid rgba(99,102,241,0.3); }
+    .badge-cancelled                  { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+    .badge-confirmed                  { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+    .badge-pending                    { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+    .badge-info                       { background: rgba(59,130,246,0.15); color: var(--info); border: 1px solid rgba(59,130,246,0.3); }
+    .badge-event                      { background: rgba(20,184,166,0.15); color: var(--teal); border: 1px solid rgba(20,184,166,0.3); }
+
+    /* ─── Buttons ───────────────────────────────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; transition: var(--transition); }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    .btn-teal { background: var(--teal); color: #fff; }
+    .btn-teal:hover { background: var(--teal-dark); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 5px 12px; font-size: 0.78rem; }
+    .btn-icon { padding: 8px; }
+
+    /* ─── Event Cards ───────────────────────────────────────────────────── */
+    .event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; }
+    .event-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .event-card:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-2px); }
+    .event-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .event-card h3 { font-size: 1rem; font-weight: 700; line-height: 1.3; }
+    .event-meta { display: flex; flex-direction: column; gap: 4px; }
+    .event-meta-row { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); }
+    .event-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+
+    /* ─── Lot Cards ─────────────────────────────────────────────────────── */
+    .lot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 16px; }
+    .lot-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      transition: var(--transition);
+    }
+    .lot-card:hover { border-color: rgba(99,102,241,0.3); }
+    .lot-card h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+    .lot-card .lot-addr { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px; }
+    .lot-meta { display: flex; gap: 16px; margin-bottom: 12px; font-size: 0.78rem; }
+    .lot-meta-item { display: flex; flex-direction: column; gap: 1px; }
+    .lot-meta-item span:first-child { color: var(--text-dim); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.4px; }
+    .lot-meta-item span:last-child { font-weight: 600; color: var(--text); }
+    .occupancy-bar { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
+    .occupancy-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+    .fill-low { background: var(--success); }
+    .fill-medium { background: var(--warning); }
+    .fill-high { background: var(--danger); }
+    .lot-footer { display: flex; justify-content: space-between; align-items: center; }
+    .lot-price { font-size: 1rem; font-weight: 700; color: var(--teal); }
+
+    /* ─── Search Bar ────────────────────────────────────────────────────── */
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .search-bar input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      color: var(--text);
+      font-size: 0.875rem;
+    }
+    .search-bar input:focus { outline: none; border-color: var(--primary); }
+    .search-bar input::placeholder { color: var(--text-dim); }
+
+    /* ─── Tabs ──────────────────────────────────────────────────────────── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--bg-card); padding: 4px; border-radius: var(--radius); border: 1px solid var(--border); width: fit-content; }
+    .tab { padding: 7px 18px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); transition: var(--transition); border: none; background: none; }
+    .tab.active { background: var(--primary); color: #fff; }
+    .tab:hover:not(.active) { color: var(--text); }
+
+    /* ─── Section Header ────────────────────────────────────────────────── */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .section-header h3 { font-size: 1.05rem; font-weight: 700; }
+
+    /* ─── Map Container ─────────────────────────────────────────────────── */
+    #find-map {
+      height: 420px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: #0f0f22;
+    }
+
+    /* ─── Notification List ─────────────────────────────────────────────── */
+    .notif-list { display: flex; flex-direction: column; gap: 8px; }
+    .notif-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: var(--transition);
+    }
+    .notif-item.unread { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.06); }
+    .notif-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+    .notif-content { flex: 1; min-width: 0; }
+    .notif-msg { font-size: 0.875rem; line-height: 1.5; }
+    .notif-time { font-size: 0.75rem; color: var(--text-dim); margin-top: 3px; }
+    .unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); flex-shrink: 0; margin-top: 6px; }
+
+    /* ─── Review Form ───────────────────────────────────────────────────── */
+    .review-card { display: flex; flex-direction: column; gap: 14px; }
+    .star-rating { display: flex; gap: 6px; }
+    .star { font-size: 1.6rem; cursor: pointer; transition: transform 0.1s; color: var(--text-dim); }
+    .star:hover, .star.active { color: var(--warning); transform: scale(1.15); }
+    .existing-review {
+      padding: 12px;
+      background: rgba(16,185,129,0.06);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+    }
+
+    /* ─── Profile Form ──────────────────────────────────────────────────── */
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 640px) { .profile-grid { grid-template-columns: 1fr; } }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .form-group input, .form-group textarea, .form-group select {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: var(--transition);
+    }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group select option { background: #1a1a2e; color: var(--text); }
+
+    /* ─── Modal ─────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #13132a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+    .modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+    .modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.4rem; line-height: 1; padding: 0; transition: var(--transition); }
+    .modal-close:hover { color: var(--text); }
+    .modal-form { display: flex; flex-direction: column; gap: 16px; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .modal-footer { display: flex; gap: 10px; margin-top: 6px; }
+    .modal-footer .btn { flex: 1; justify-content: center; }
+    .booking-summary { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: var(--radius); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .booking-summary .amount { font-size: 1.3rem; font-weight: 800; color: var(--teal); }
+
+    /* ─── QR Modal ──────────────────────────────────────────────────────── */
+    .qr-box { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    #qr-canvas { background: #fff; padding: 12px; border-radius: 12px; }
+    .qr-details { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+    .qr-detail-row { display: flex; justify-content: space-between; font-size: 0.83rem; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .qr-detail-row:last-child { border-bottom: none; }
+    .qr-detail-row span:first-child { color: var(--text-muted); }
+    .qr-detail-row span:last-child { font-weight: 600; }
+
+    /* ─── Toast ─────────────────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #fff;
+      box-shadow: var(--shadow-lg);
+      animation: slideIn 0.3s ease;
+      min-width: 240px;
+      max-width: 360px;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-success { background: linear-gradient(135deg, var(--success), #059669); }
+    .toast-error   { background: linear-gradient(135deg, var(--danger), #dc2626); }
+    .toast-info    { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
+    .toast-warning { background: linear-gradient(135deg, var(--warning), #d97706); }
+
+    /* ─── Empty State ───────────────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state h4 { font-size: 1rem; color: var(--text); margin-bottom: 6px; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* ─── Divider ───────────────────────────────────────────────────────── */
+    .section-divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+    /* ─── Responsive ────────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar { width: 200px; min-width: 200px; }
+      .page { padding: 16px; }
+    }
+
+    /* ─── Vehicle License Plate & Garage ───────────────────────────────── */
+    .plate-badge {
+      display: inline-flex;
+      align-items: center;
+      background: #f8fafc;
+      color: #0f172a;
+      border: 2px solid #0f172a;
+      border-radius: 6px;
+      font-family: 'Poppins', 'Inter', monospace;
+      font-weight: 800;
+      letter-spacing: 1px;
+      font-size: 0.95rem;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .plate-country {
+      background: #0284c7;
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 900;
+      padding: 4px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+      border-right: 1.5px solid #0f172a;
+    }
+    .plate-number {
+      padding: 4px 10px;
+      text-transform: uppercase;
+    }
+    .vehicle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .vehicle-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: var(--transition);
+      position: relative;
+    }
+    .vehicle-card:hover {
+      border-color: rgba(99,102,241,0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .vehicle-card.is-default {
+      border-color: rgba(245,158,11,0.4);
+      background: linear-gradient(145deg, rgba(245,158,11,0.04), rgba(18,18,42,0.95));
+    }
+    .vehicle-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .vehicle-spec-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .vehicle-color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- ═══ Booking Modal ══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="booking-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🅿️ Book Parking</h3>
+      <button class="modal-close" onclick="closeBookingModal()">✕</button>
+    </div>
+    <div class="modal-form">
+      <div id="booking-lot-info" class="card card-sm" style="margin-bottom:4px;"></div>
+
+      <div class="form-group" id="bk-vehicle-select-group" style="margin-bottom:8px;">
+        <label>Select Saved Vehicle</label>
+        <select id="bk-vehicle-select" onchange="onBookingVehicleSelect()">
+          <option value="">-- Choose from your registered vehicles --</option>
+        </select>
+      </div>
+
+      <div class="modal-row">
+        <div class="form-group">
+          <label>Vehicle Number</label>
+          <input id="bk-vehicle-no" type="text" placeholder="TN01AB1234" maxlength="12"/>
+        </div>
+        <div class="form-group">
+          <label>Vehicle Type</label>
+          <select id="bk-vehicle-type">
+            <option value="Car">Car</option>
+            <option value="Bike">Bike</option>
+            <option value="Auto">Auto</option>
+            <option value="Truck">Truck</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Date</label>
+        <input id="bk-date" type="date"/>
+      </div>
+
+      <div class="modal-row">
+        <div class="form-group">
+          <label>Start Time</label>
+          <input id="bk-start" type="time"/>
+        </div>
+        <div class="form-group">
+          <label>End Time</label>
+          <input id="bk-end" type="time"/>
+        </div>
+      </div>
+
+      <div class="booking-summary">
+        <div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Duration</div>
+          <div style="font-weight:700;" id="bk-duration">0 hrs</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.78rem;color:var(--text-muted);">Total Amount</div>
+          <div class="amount" id="bk-total">₹0</div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeBookingModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmBooking()">
+          <i data-lucide="check-circle"></i> Confirm Booking
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ QR Code Modal ══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="qr-modal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>🎫 Booking Pass</h3>
+      <button class="modal-close" onclick="closeQRModal()">✕</button>
+    </div>
+    <div class="qr-box">
+      <div id="qr-canvas"></div>
+      <div class="qr-details" id="qr-details"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Event Detail Modal ══════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="event-detail-modal">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-header">
+      <h3 id="ev-modal-title">Event Details</h3>
+      <button class="modal-close" onclick="closeEventDetailModal()">✕</button>
+    </div>
+    <div id="ev-modal-content" style="padding:12px 0;"></div>
+    <div class="modal-footer" style="padding-top:16px;display:flex;gap:12px;justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="closeEventDetailModal()">Close</button>
+      <button class="btn btn-primary" id="ev-modal-book-btn">Book Parking</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Google Maps API Key Modal ═══════════════════════════════════════════ -->
+<div class="modal-overlay" id="gmaps-modal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3>⚙️ Google Maps API Key</h3>
+      <button class="modal-close" onclick="closeGmapsModal()">✕</button>
+    </div>
+    <div style="padding:12px 0;">
+      <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">
+        To render official Google Maps with live traffic layers and Google Directions, enter your API key below.
+        If omitted, EVETRAMASY uses our high-speed OpenStreetMap engine with simulated live traffic conditions.
+      </p>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="font-size:0.8rem;color:var(--text-muted);margin-bottom:4px;display:block;">Google Maps API Key</label>
+        <input type="text" id="input-gmaps-key" class="form-control" placeholder="AIzaSy..." style="background:rgba(255,255,255,0.05);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;width:100%;font-size:0.85rem;"/>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text-dim);">
+        💡 Your key is securely stored in your browser's local storage and used directly for Google Traffic &amp; Route requests.
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:12px;justify-content:flex-end;padding-top:16px;">
+      <button class="btn btn-outline" onclick="closeGmapsModal()">Cancel</button>
+      <button class="btn btn-teal" onclick="saveGmapsKey()">Save &amp; Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Dashboard Layout ══════════════════════════════════════════════════ -->
+<div class="dashboard-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">EVETRAMASY</div>
+      <div class="sidebar-subtitle">Customer Portal</div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">Loading...</div>
+        <div class="user-role">Customer</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" onclick="showPage('overview')">
+        <i data-lucide="layout-dashboard" class="nav-icon"></i>
+        Overview
+      </button>
+      <button class="nav-item" onclick="showPage('find-parking')">
+        <i data-lucide="map-pin" class="nav-icon"></i>
+        Find Parking
+      </button>
+      <button class="nav-item" onclick="showPage('events')">
+        <i data-lucide="calendar-days" class="nav-icon"></i>
+        Browse Events
+      </button>
+      <button class="nav-item" onclick="showPage('ai-routes')">
+        <i data-lucide="navigation" class="nav-icon"></i>
+        AI Smart Routes
+      </button>
+      <button class="nav-item" onclick="showPage('bookings')">
+        <i data-lucide="clipboard-list" class="nav-icon"></i>
+        My Bookings
+      </button>
+      <button class="nav-item" onclick="showPage('my-vehicles')">
+        <i data-lucide="car" class="nav-icon"></i>
+        My Vehicles
+      </button>
+      <button class="nav-item" onclick="showPage('notifications')">
+        <i data-lucide="bell" class="nav-icon"></i>
+        Notifications
+        <span class="nav-badge" id="notif-badge" style="display:none;"></span>
+      </button>
+      <button class="nav-item" onclick="showPage('reviews')">
+        <i data-lucide="star" class="nav-icon"></i>
+        Reviews
+      </button>
+      <button class="nav-item" onclick="showPage('profile')">
+        <i data-lucide="user-circle" class="nav-icon"></i>
+        Profile
+      </button>
+
+      <div class="nav-divider"></div>
+
+      <button class="nav-item logout" onclick="Auth.logout()">
+        <i data-lucide="log-out" class="nav-icon"></i>
+        Logout
+      </button>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- ── Topbar ───────────────────────────────────────────────────────── -->
+    <div class="topbar">
+      <div>
+        <h2 id="page-title">Overview</h2>
+        <div class="topbar-sub" id="page-sub">Welcome back! Here's what's happening.</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-outline btn-sm" onclick="showPage('find-parking')">
+          <i data-lucide="search"></i> Find Parking
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="showPage('events')">
+          <i data-lucide="calendar-plus"></i> Browse Events
+        </button>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: OVERVIEW
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page active" data-page="overview">
+
+      <!-- Stats -->
+      <div class="stats-grid" id="overview-stats"></div>
+
+      <!-- Upcoming Bookings -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="section-header">
+          <h3>📅 Upcoming Bookings</h3>
+          <button class="btn btn-outline btn-sm" onclick="showPage('bookings')">View All</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Lot Name</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="upcoming-bookings-table">
+              <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📭</div><p>No upcoming bookings</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Events near you -->
+      <div class="section-header">
+        <h3>🎭 Events Near You</h3>
+        <button class="btn btn-outline btn-sm" onclick="showPage('events')">Browse All</button>
+      </div>
+      <div class="event-grid" id="overview-events"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: FIND PARKING
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="find-parking">
+      <div class="search-bar">
+        <input id="location-input" type="text" placeholder="🔍  Search by area or address (e.g. Egmore, Chennai)…"/>
+        <button class="btn btn-primary" onclick="searchParking()">
+          <i data-lucide="search"></i> Search
+        </button>
+        <button class="btn btn-outline" onclick="resetMap()">
+          <i data-lucide="rotate-ccw"></i> Reset
+        </button>
+      </div>
+      <div id="find-map"></div>
+      <div id="parking-results" class="lot-grid"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: BROWSE EVENTS
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="events">
+      <div class="event-grid" id="events-grid"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: MY BOOKINGS
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="bookings">
+      <div class="tabs">
+        <button class="tab active" onclick="showBookingTab('active', this)">✅ Active</button>
+        <button class="tab" onclick="showBookingTab('completed', this)">✔ Completed</button>
+        <button class="tab" onclick="showBookingTab('cancelled', this)">✕ Cancelled</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Booking ID</th>
+                <th>Lot Name</th>
+                <th>Vehicle</th>
+                <th>Event / Daily</th>
+                <th>Duration</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: MY VEHICLES (REGISTER & VIEW OWNED VEHICLES)
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="my-vehicles">
+      
+      <!-- Top Stats Row -->
+      <div class="stats-grid" id="vehicles-stats-grid" style="margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(99,102,241,0.15);">🚘</div>
+          <div class="stat-value" id="stat-veh-total" style="color:var(--primary);">0</div>
+          <div class="stat-label">Total Vehicles</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(245,158,11,0.15);">⭐</div>
+          <div class="stat-value" id="stat-veh-default" style="color:var(--warning);font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">None</div>
+          <div class="stat-label">Primary Vehicle</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(16,185,129,0.15);">⚡</div>
+          <div class="stat-value" id="stat-veh-ev" style="color:var(--success);">0</div>
+          <div class="stat-label">EV / Electric Units</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(20,184,166,0.15);">📶</div>
+          <div class="stat-value" id="stat-veh-fastag" style="color:var(--teal);">Active</div>
+          <div class="stat-label">RFID Gate Sensor Sync</div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs: View Vehicles Owned vs Register Vehicle -->
+      <div class="flex-between" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div class="tabs" style="margin-bottom:0;">
+          <button class="tab active" id="tab-veh-view" onclick="switchVehicleTab('view')">
+            🚘 View Vehicles Owned (<span id="veh-count-badge">0</span>)
+          </button>
+          <button class="tab" id="tab-veh-register" onclick="switchVehicleTab('register')">
+            ➕ Register New Vehicle
+          </button>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-quick-reg-veh" onclick="switchVehicleTab('register')">
+          <i data-lucide="plus-circle"></i> Register Vehicle
+        </button>
+      </div>
+
+      <!-- ── SECTION 1: View Vehicles Owned ── -->
+      <div id="section-vehicles-view">
+        <div class="flex-between" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-outline btn-sm veh-filter active" onclick="filterVehicles('all', this)">All Vehicles</button>
+            <button class="btn btn-outline btn-sm veh-filter" onclick="filterVehicles('Car', this)">Cars & SUVs</button>
+            <button class="btn btn-outline btn-sm veh-filter" onclick="filterVehicles('Two-Wheeler', this)">Two-Wheelers</button>
+            <button class="btn btn-outline btn-sm veh-filter" onclick="filterVehicles('Electric', this)">⚡ EVs</button>
+          </div>
+          <div style="font-size:0.8rem;color:var(--text-muted);">
+            💡 Default vehicle is automatically selected during instant 1-click slot booking
+          </div>
+        </div>
+
+        <div class="vehicle-grid" id="vehicles-list-grid">
+          <!-- Dynamically populated vehicle cards -->
+        </div>
+      </div>
+
+      <!-- ── SECTION 2: Register New Vehicle Form ── -->
+      <div id="section-vehicles-register" style="display:none;">
+        <div class="card" style="max-width:720px;margin:0 auto;">
+          <div class="section-header" style="border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:18px;">
+            <div>
+              <h3>➕ Register a Vehicle You Own</h3>
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-top:4px;">Link your car, motorcycle, scooter or EV to EVETRAMASY for instant parking passes and smart entry gate recognition.</p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="switchVehicleTab('view')">
+              Cancel
+            </button>
+          </div>
+
+          <form id="form-register-vehicle" onsubmit="handleRegisterVehicle(event)">
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>Vehicle License Plate / Registration Number *</label>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <div class="plate-badge" style="height:44px;">
+                  <span class="plate-country">IND</span>
+                  <input type="text" id="veh-reg-plate" required placeholder="TN 09 AB 1234" maxlength="15"
+                    style="border:none;outline:none;background:transparent;color:#0f172a;font-family:inherit;font-weight:800;font-size:1rem;text-transform:uppercase;width:170px;"
+                    oninput="this.value = this.value.toUpperCase()" />
+                </div>
+                <small style="color:var(--text-dim);font-size:0.75rem;">Enter complete plate with state code (e.g. TN 01 AB 1234)</small>
+              </div>
+            </div>
+
+            <div class="profile-grid" style="margin-bottom:16px;">
+              <div class="form-group">
+                <label>Vehicle Category *</label>
+                <select id="veh-reg-type" required>
+                  <option value="Car">🚗 Car / Sedan</option>
+                  <option value="SUV">🚙 SUV / MUV</option>
+                  <option value="Two-Wheeler">🛵 Two-Wheeler / Bike / Scooter</option>
+                  <option value="Electric Vehicle">⚡ Electric Vehicle (EV)</option>
+                  <option value="Van">🚐 Van / Minibus</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Make & Model *</label>
+                <input type="text" id="veh-reg-model" required placeholder="e.g. Hyundai Creta, Ather 450X, Tata Nexon" />
+              </div>
+
+              <div class="form-group">
+                <label>Fuel / Powertrain *</label>
+                <select id="veh-reg-fuel" required>
+                  <option value="Petrol">Petrol</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Electric">Electric (100% Battery)</option>
+                  <option value="Hybrid">Hybrid (Electric + Petrol)</option>
+                  <option value="CNG">CNG</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Vehicle Color</label>
+                <select id="veh-reg-color">
+                  <option value="Polar White">Polar White</option>
+                  <option value="Phantom Black">Phantom Black</option>
+                  <option value="Silver / Grey">Silver / Grey</option>
+                  <option value="Midnight Blue">Midnight Blue</option>
+                  <option value="Fiery Red">Fiery Red</option>
+                  <option value="Emerald Green">Emerald Green</option>
+                  <option value="Space Grey">Space Grey</option>
+                  <option value="Golden Yellow">Golden Yellow</option>
+                  <option value="Other">Other Custom Color</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px;">
+              <label>FASTag / RFID Tag ID (Optional)</label>
+              <input type="text" id="veh-reg-fastag" placeholder="e.g. NETC-FASTAG-982104" maxlength="25" />
+              <small style="color:var(--text-dim);font-size:0.75rem;margin-top:3px;">Enables automatic boom-barrier lift at participating EVETRAMASY parking lots.</small>
+            </div>
+
+            <div style="margin-bottom:20px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;">
+                <input type="checkbox" id="veh-reg-default" style="width:16px;height:16px;accent-color:var(--primary);" />
+                <span>⭐ Set as my primary / default vehicle for parking reservations</span>
+              </label>
+            </div>
+
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+              <button type="button" class="btn btn-outline" onclick="switchVehicleTab('view')">Cancel</button>
+              <button type="submit" class="btn btn-primary">
+                <i data-lucide="check-circle"></i> Save & Register Vehicle
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: NOTIFICATIONS
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="notifications">
+      <div class="section-header">
+        <h3>🔔 Your Notifications</h3>
+        <button class="btn btn-outline btn-sm" onclick="markAllRead()">
+          <i data-lucide="check-check"></i> Mark All Read
+        </button>
+      </div>
+      <div class="notif-list" id="notif-list"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: AI SMART ROUTES & TRAFFIC SUGGESTIONS
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="ai-routes">
+      <!-- Header with Google Maps Key Button -->
+      <div class="section-header" style="flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+        <div>
+          <h3 style="font-size:1.2rem;display:flex;align-items:center;gap:8px;">
+            <span>🚦</span> AI Smart Route &amp; Traffic Reduction
+          </h3>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">
+            Real-time road congestion analysis, bottleneck avoidance &amp; predictive event gate routing.
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-outline btn-sm" onclick="openGmapsModal()">
+            <i data-lucide="key"></i> <span id="gmaps-key-label">Configure Google Maps Key</span>
+          </button>
+          <button class="btn btn-teal btn-sm" onclick="calculateAIRoutes()">
+            <i data-lucide="sparkles"></i> Re-Calculate AI Routes
+          </button>
+        </div>
+      </div>
+
+      <!-- Route Planner Parameters Card -->
+      <div class="card" style="margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="form-group">
+            <label style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">Starting Point (Your Location)</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="ai-origin-input" class="form-control" placeholder="e.g. Egmore, Chennai" value="Egmore, Chennai" style="background:rgba(255,255,255,0.05);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:0.88rem;flex:1;"/>
+              <button class="btn btn-outline btn-sm" onclick="useMyLocation()" title="Use GPS Location">
+                <i data-lucide="locate"></i>
+              </button>
+            </div>
+            <!-- Quick Area Presets -->
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+              <span style="font-size:0.72rem;color:var(--text-dim);align-self:center;">Presets:</span>
+              <button class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:2px 8px;" onclick="setOrigin('Egmore, Chennai')">Egmore</button>
+              <button class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:2px 8px;" onclick="setOrigin('T. Nagar, Chennai')">T. Nagar</button>
+              <button class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:2px 8px;" onclick="setOrigin('Adyar, Chennai')">Adyar</button>
+              <button class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:2px 8px;" onclick="setOrigin('Anna Nagar, Chennai')">Anna Nagar</button>
+              <button class="btn btn-ghost btn-sm" style="font-size:0.72rem;padding:2px 8px;" onclick="setOrigin('Chennai Airport')">Airport</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label style="font-weight:600;font-size:0.85rem;color:var(--text-muted);">Destination Event &amp; Venue</label>
+            <select id="ai-event-select" class="form-control" style="background:#1e1e3f;color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:0.88rem;" onchange="calculateAIRoutes()">
+            </select>
+            <div id="ai-event-meta-hint" style="font-size:0.75rem;color:var(--text-dim);margin-top:6px;">
+              📍 MA Chidambaram Stadium, Chepauk (50,000 visitors expected)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Congestion Alert Banner -->
+      <div id="ai-traffic-banner" class="alert alert-warning" style="margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🤖</span>
+        <div style="flex:1;font-size:0.85rem;">
+          <b>AI Congestion Advisory:</b> High influx detected approaching match start. Wallajah Road has severe bottleneck delays (+18 mins).
+          <b>AI Route #1</b> diverts you to the eastern corridor and recommends <b>Gate B</b> to save ~18 minutes!
+        </div>
+      </div>
+
+      <!-- 3 AI Route Comparison Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:24px;" id="ai-route-cards">
+        <!-- Route 1: Recommended -->
+        <div class="card" id="card-route-ai" style="border:2px solid var(--success);background:rgba(16,185,129,0.05);cursor:pointer;" onclick="selectAIRoute('recommended')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <span class="badge badge-success">🏆 Recommended by AI</span>
+            <span style="font-size:0.75rem;color:var(--success);font-weight:700;">SAVES ~18 MINS</span>
+          </div>
+          <h4 style="font-size:1rem;margin-bottom:4px;">Bypass Eastern Promenade</h4>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">Via Kamarajar Salai · Diverts to Gate B</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <div style="font-size:1.4rem;font-weight:800;color:var(--text);" id="ai-rec-time">14 mins</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);" id="ai-rec-dist">5.4 km</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge badge-success">🟢 18% Traffic Flow</span>
+              <div style="font-size:0.72rem;color:var(--teal);margin-top:4px;">🌱 -0.38 kg CO₂</div>
+            </div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-dim);border-top:1px solid var(--border);padding-top:8px;">
+            🚪 Recommended Gate: <b>Gate B (Queue: 4 cars)</b><br>
+            🅿️ Parking: <b>Sharma Complex</b>
+          </div>
+        </div>
+
+        <!-- Route 2: Direct Arterial (Congested) -->
+        <div class="card" id="card-route-direct" style="border:1px solid rgba(239,68,68,0.4);background:rgba(239,68,68,0.03);cursor:pointer;" onclick="selectAIRoute('direct')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <span class="badge badge-danger">⚠️ Direct Arterial</span>
+            <span style="font-size:0.75rem;color:var(--danger);font-weight:700;">+20M DELAY</span>
+          </div>
+          <h4 style="font-size:1rem;margin-bottom:4px;">Anna Salai &amp; Wallajah Rd</h4>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">Direct Highway · Approaching Gate A</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <div style="font-size:1.4rem;font-weight:800;color:var(--danger);" id="ai-dir-time">33 mins</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);" id="ai-dir-dist">4.1 km</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge badge-danger">🔴 88% Congestion</span>
+              <div style="font-size:0.72rem;color:var(--danger);margin-top:4px;">High Idling Time</div>
+            </div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-dim);border-top:1px solid var(--border);padding-top:8px;">
+            🚪 Heavy Bottleneck: <b>Gate A (Queue: 28 cars)</b><br>
+            🅿️ Parking: <b>High queue at entry</b>
+          </div>
+        </div>
+
+        <!-- Route 3: Eco Cruising -->
+        <div class="card" id="card-route-eco" style="border:1px solid rgba(20,184,166,0.4);background:rgba(20,184,166,0.03);cursor:pointer;" onclick="selectAIRoute('eco')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <span class="badge badge-primary">🌿 Eco-Cruising</span>
+            <span style="font-size:0.75rem;color:var(--teal);font-weight:700;">LOWEST CARBON</span>
+          </div>
+          <h4 style="font-size:1rem;margin-bottom:4px;">South Transit Corridor</h4>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;">Steady Speeds · Minimal Signals</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <div style="font-size:1.4rem;font-weight:800;color:var(--teal);" id="ai-eco-time">17 mins</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);" id="ai-eco-dist">6.2 km</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="badge badge-primary">🟢 24% Traffic Flow</span>
+              <div style="font-size:0.72rem;color:var(--teal);margin-top:4px;">🌱 -0.46 kg CO₂</div>
+            </div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-dim);border-top:1px solid var(--border);padding-top:8px;">
+            🚪 Smooth Cruise: <b>Gate B South Drop</b><br>
+            🅿️ Parking: <b>City Centre Open Lot</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Traffic Map Container -->
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:20px;position:relative;">
+        <!-- Map Header bar with legend -->
+        <div style="padding:12px 18px;background:rgba(15,15,34,0.9);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:12px;font-size:0.8rem;">
+            <b>Live Road Traffic:</b>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#10b981;"></span> Free Flow (&gt;40km/h)</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></span> Moderate</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></span> Heavy Bottleneck</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#dc2626;border:1px dashed #fff;"></span> Emergency Corridor</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" id="btn-toggle-traffic-view" onclick="toggleMapEngineView()">
+              Switch to Google Maps View
+            </button>
+          </div>
+        </div>
+
+        <!-- Leaflet Map -->
+        <div id="ai-route-map" style="height:440px;width:100%;"></div>
+        <!-- Google Map Container (Active when key present) -->
+        <div id="google-traffic-map" style="height:440px;width:100%;display:none;"></div>
+      </div>
+
+      <!-- Turn-by-Turn Steps & Action Card -->
+      <div class="card">
+        <div class="section-header" style="margin-bottom:14px;">
+          <h4 style="font-size:0.95rem;">📍 Turn-by-Turn AI Guidance (<span id="selected-route-name">Bypass Eastern Promenade</span>)</h4>
+          <button class="btn btn-primary btn-sm" onclick="bookParkingForAIRoute()">
+            <i data-lucide="parking-circle"></i> Book Recommended Parking Lot
+          </button>
+        </div>
+        <div id="ai-steps-list" style="display:flex;flex-direction:column;gap:8px;font-size:0.85rem;">
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: REVIEWS
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="reviews">
+      <div id="reviews-container"></div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         PAGE: PROFILE
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="page" data-page="profile">
+      <div style="max-width:680px;">
+
+        <!-- Profile Info -->
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-header">
+            <h3>👤 Personal Information</h3>
+          </div>
+          <div class="profile-grid">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input id="p-name" type="text" placeholder="Your full name"/>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input id="p-email" type="email" placeholder="email@example.com"/>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input id="p-phone" type="tel" placeholder="+91 98765 43210"/>
+            </div>
+            <div class="form-group">
+              <label>Username</label>
+              <input id="p-username" type="text" disabled style="opacity:0.5;cursor:not-allowed;"/>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-primary" onclick="saveProfile()">
+              <i data-lucide="save"></i> Save Changes
+            </button>
+          </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="card">
+          <div class="section-header">
+            <h3>🔒 Change Password</h3>
+          </div>
+          <div class="profile-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Current Password</label>
+              <input id="p-cur-pass" type="password" placeholder="Current password"/>
+            </div>
+            <div class="form-group">
+              <label>New Password</label>
+              <input id="p-new-pass" type="password" placeholder="Min. 6 characters"/>
+            </div>
+            <div class="form-group">
+              <label>Confirm New Password</label>
+              <input id="p-conf-pass" type="password" placeholder="Repeat new password"/>
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-teal" onclick="changePassword()">
+              <i data-lucide="shield-check"></i> Update Password
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main><!-- /main-content -->
+</div><!-- /dashboard-layout -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     External Scripts
+════════════════════════════════════════════════════════════════════════════ -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="../js/db.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/map.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   AUTH GUARD
+═══════════════════════════════════════════════════════════════════════ */
+const user = Auth.requireAuth('customer');
+if (!user) { throw new Error('Not authenticated'); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GLOBALS
+═══════════════════════════════════════════════════════════════════════ */
+let currentBookingLot = null;  // lot object for booking modal
+let currentBookingEvent = null; // event id (optional)
+let mapInitialized = false;
+let currentBookingTab = 'active';
+let reviewRatings = {};  // lotId -> selected star count
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════════ */
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const page = document.querySelector(`.page[data-page="${name}"]`);
+  if (page) page.classList.add('active');
+
+  // Activate nav button
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${name}'`)) {
+      btn.classList.add('active');
+    }
+  });
+
+  // Update topbar
+  const titles = {
+    'overview':      ['Overview',        "Welcome back! Here's what's happening."],
+    'find-parking':  ['Find Parking',    'Search and book nearby parking spots.'],
+    'events':        ['Browse Events',   'Upcoming events around Chennai.'],
+    'ai-routes':     ['AI Smart Routes', 'Predictive congestion reduction and optimal arrival navigation.'],
+    'bookings':      ['My Bookings',     'Manage all your parking reservations.'],
+    'my-vehicles':   ['My Vehicles',     'Register and view all your owned vehicles for fast parking passes.'],
+    'notifications': ['Notifications',   'Stay up to date with your activity.'],
+    'reviews':       ['Reviews',         'Rate and review your parking experiences.'],
+    'profile':       ['Profile',         'Manage your account information.'],
+  };
+  const [title, sub] = titles[name] || ['Dashboard', ''];
+  document.getElementById('page-title').textContent = title;
+  document.getElementById('page-sub').textContent = sub;
+
+  // Lazy init for each page
+  if (name === 'find-parking' && !mapInitialized) {
+    setTimeout(initFindMap, 100);
+  }
+  if (name === 'ai-routes')      loadAIRoutes();
+  if (name === 'overview')       loadOverview();
+  if (name === 'events')         loadEvents();
+  if (name === 'bookings')       loadBookings();
+  if (name === 'my-vehicles')    loadMyVehicles();
+  if (name === 'notifications')  loadNotifications();
+  if (name === 'reviews')        loadReviews();
+  if (name === 'profile')        loadProfile();
+}
+
+function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s'; setTimeout(() => toast.remove(), 300); }, 3500);
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatCurrency(n) {
+  return '₹' + (Number(n) || 0).toLocaleString('en-IN');
+}
+
+function getOccupancyClass(pct) {
+  if (pct < 50) return 'fill-low';
+  if (pct < 80) return 'fill-medium';
+  return 'fill-high';
+}
+
+function shortId(id) {
+  return id ? '#' + id.toString().slice(-6).toUpperCase() : '—';
+}
+
+function relativeTime(iso) {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return formatDate(iso);
+}
+
+function notifIcon(type) {
+  const map = { booking: '📦', application: '📋', info: 'ℹ️', review: '⭐', event: '🎭' };
+  return map[type] || 'ℹ️';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   INITIALISE USER INFO IN SIDEBAR
+═══════════════════════════════════════════════════════════════════════ */
+(function initUser() {
+  document.getElementById('user-avatar').textContent = (user.name || user.username || '?')[0].toUpperCase();
+  document.getElementById('user-name').textContent = user.name || user.username;
+  updateNotifBadge();
+})();
+
+function updateNotifBadge() {
+  const count = DB.Notifications.unreadCount(user.id);
+  const badge = document.getElementById('notif-badge');
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: AI SMART ROUTES & TRAFFIC SUGGESTIONS
+═══════════════════════════════════════════════════════════════════════ */
+let aiRouteMap = null;
+let aiRouteTrafficLayer = null;
+let aiRoutePolyline = null;
+let currentAIRoutesData = null;
+let selectedAIRouteKey = 'recommended';
+let googleMapInstance = null;
+
+function loadAIRoutes() {
+  updateGmapsLabel();
+  populateAIEventsDropdown();
+  if (!aiRouteMap) {
+    setTimeout(initAIRouteMap, 100);
+  } else {
+    setTimeout(() => { aiRouteMap.invalidateSize(); }, 200);
+  }
+}
+
+function updateGmapsLabel() {
+  const key = DB.Config.getGoogleMapsKey();
+  const label = document.getElementById('gmaps-key-label');
+  if (label) {
+    label.textContent = key ? 'Google Maps: Connected' : 'Configure Google Maps Key';
+  }
+}
+
+function openGmapsModal() {
+  document.getElementById('input-gmaps-key').value = DB.Config.getGoogleMapsKey();
+  document.getElementById('gmaps-modal').classList.add('open');
+}
+
+function closeGmapsModal() {
+  document.getElementById('gmaps-modal').classList.remove('open');
+}
+
+function saveGmapsKey() {
+  const key = document.getElementById('input-gmaps-key').value.trim();
+  DB.Config.setGoogleMapsKey(key);
+  closeGmapsModal();
+  updateGmapsLabel();
+  showToast(key ? 'Google Maps API Key saved! 🎉' : 'Google Maps API Key cleared.', 'success');
+  if (key) {
+    MapEngine.loadGoogleMaps(key).then(() => {
+      showToast('Google Maps live traffic engine loaded!', 'success');
+    }).catch(err => {
+      showToast('Google Maps Key note: ' + err.message, 'warning');
+    });
+  }
+}
+
+function populateAIEventsDropdown() {
+  const sel = document.getElementById('ai-event-select');
+  if (!sel) return;
+  const events = DB.Events.all();
+  sel.innerHTML = events.map(e => `
+    <option value="${e.id}">${e.name} — ${e.venue}</option>
+  `).join('');
+}
+
+function setOrigin(val) {
+  document.getElementById('ai-origin-input').value = val;
+  calculateAIRoutes();
+}
+
+function useMyLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById('ai-origin-input').value = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+      calculateAIRoutes();
+    }, () => {
+      document.getElementById('ai-origin-input').value = 'Egmore, Chennai';
+      calculateAIRoutes();
+    });
+  } else {
+    document.getElementById('ai-origin-input').value = 'Egmore, Chennai';
+    calculateAIRoutes();
+  }
+}
+
+async function initAIRouteMap() {
+  if (aiRouteMap) return;
+  const container = document.getElementById('ai-route-map');
+  if (!container) return;
+
+  aiRouteMap = L.map('ai-route-map', { zoomControl: true }).setView([13.0628, 80.2791], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(aiRouteMap);
+
+  // Add Live Traffic Layer
+  aiRouteTrafficLayer = MapEngine.addTrafficLayer(aiRouteMap, 13.0628, 80.2791, false);
+
+  calculateAIRoutes();
+}
+
+async function calculateAIRoutes() {
+  const originText = (document.getElementById('ai-origin-input') || {}).value || 'Egmore, Chennai';
+  const eventId = (document.getElementById('ai-event-select') || {}).value;
+  const ev = DB.Events.find(eventId) || DB.Events.all()[0];
+
+  let originCoords = { lat: 13.0827, lng: 80.2607 };
+  try {
+    const geo = await MapEngine.geocode(originText);
+    if (geo) originCoords = geo;
+  } catch(e) {}
+
+  const destCoords = { lat: ev ? ev.lat : 13.0628, lng: ev ? ev.lng : 80.2791 };
+
+  currentAIRoutesData = await MapEngine.getAIRouteSuggestions(originCoords.lat, originCoords.lng, destCoords.lat, destCoords.lng, ev);
+
+  document.getElementById('ai-rec-time').textContent = currentAIRoutesData.recommended.durationMins + ' mins';
+  document.getElementById('ai-rec-dist').textContent = currentAIRoutesData.recommended.distanceKm + ' km';
+
+  document.getElementById('ai-dir-time').textContent = currentAIRoutesData.direct.durationMins + ' mins';
+  document.getElementById('ai-dir-dist').textContent = currentAIRoutesData.direct.distanceKm + ' km';
+
+  document.getElementById('ai-eco-time').textContent = currentAIRoutesData.eco.durationMins + ' mins';
+  document.getElementById('ai-eco-dist').textContent = currentAIRoutesData.eco.distanceKm + ' km';
+
+  selectAIRoute(selectedAIRouteKey);
+}
+
+function selectAIRoute(type) {
+  selectedAIRouteKey = type;
+  if (!currentAIRoutesData) return;
+  const r = currentAIRoutesData[type];
+  if (!r) return;
+
+  ['recommended', 'direct', 'eco'].forEach(k => {
+    const card = document.getElementById(`card-route-${k === 'recommended' ? 'ai' : k}`);
+    if (card) {
+      if (k === type) {
+        card.style.transform = 'scale(1.02)';
+        card.style.boxShadow = '0 0 0 2px var(--primary), var(--shadow)';
+      } else {
+        card.style.transform = 'none';
+        card.style.boxShadow = 'none';
+      }
+    }
+  });
+
+  document.getElementById('selected-route-name').textContent = r.title.replace(/^[^\s]+\s*/, '');
+
+  const stepsContainer = document.getElementById('ai-steps-list');
+  const steps = [
+    { icon: 'navigation', text: `Start from origin and head towards outer ring road.` },
+    { icon: 'shield-alert', text: `AI Traffic Advisory: ${r.summary}` },
+    { icon: 'clock', text: `Optimal Departure Window: ${r.departureWindow}` },
+    { icon: 'door-open', text: `Approach via: ${r.gateSuggestion}` },
+    { icon: 'parking-circle', text: `Target Parking Facility: ${r.parkingSuggestion}` }
+  ];
+
+  stepsContainer.innerHTML = steps.map(s => `
+    <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;">
+      <i data-lucide="${s.icon}" style="color:var(--primary);flex-shrink:0;"></i>
+      <span style="flex:1;">${s.text}</span>
+    </div>
+  `).join('');
+  lucide.createIcons();
+
+  if (aiRouteMap && r.waypoints) {
+    if (aiRoutePolyline) {
+      aiRouteMap.removeLayer(aiRoutePolyline);
+    }
+    const color = type === 'recommended' ? '#10b981' : type === 'direct' ? '#ef4444' : '#14b8a6';
+    aiRoutePolyline = L.polyline(r.waypoints, {
+      color: color,
+      weight: 6,
+      opacity: 0.9,
+      dashArray: type === 'recommended' ? null : '10, 6'
+    }).addTo(aiRouteMap);
+
+    aiRouteMap.fitBounds(aiRoutePolyline.getBounds(), { padding: [50, 50] });
+  }
+}
+
+function bookParkingForAIRoute() {
+  const evId = (document.getElementById('ai-event-select') || {}).value;
+  const ev = DB.Events.find(evId) || DB.Events.all()[0];
+  if (ev && ev.approvedParkingLots && ev.approvedParkingLots.length > 0) {
+    const lot = DB.ParkingLots.find(ev.approvedParkingLots[0]);
+    if (lot) openBookingModal(lot, ev.id);
+  } else {
+    const activeLots = DB.ParkingLots.active();
+    if (activeLots.length) openBookingModal(activeLots[0], null);
+    else showToast('No parking lots available to book', 'warning');
+  }
+}
+
+function toggleMapEngineView() {
+  const key = DB.Config.getGoogleMapsKey();
+  const btn = document.getElementById('btn-toggle-traffic-view');
+  const leafletDiv = document.getElementById('ai-route-map');
+  const gmapDiv = document.getElementById('google-traffic-map');
+
+  if (!key) {
+    openGmapsModal();
+    return;
+  }
+
+  if (gmapDiv.style.display === 'none') {
+    leafletDiv.style.display = 'none';
+    gmapDiv.style.display = 'block';
+    btn.textContent = 'Switch to OpenStreetMap View';
+
+    if (!googleMapInstance) {
+      MapEngine.loadGoogleMaps(key).then(() => {
+        const evId = (document.getElementById('ai-event-select') || {}).value;
+        const ev = DB.Events.find(evId) || DB.Events.all()[0];
+        const res = MapEngine.initGoogleMap('google-traffic-map', ev ? ev.lat : 13.0628, ev ? ev.lng : 80.2791, 14);
+        if (res) googleMapInstance = res.map;
+        showToast('Google Maps with Live Traffic active!', 'success');
+      }).catch(err => {
+        showToast(err.message, 'error');
+        leafletDiv.style.display = 'block';
+        gmapDiv.style.display = 'none';
+        btn.textContent = 'Switch to Google Maps View';
+      });
+    }
+  } else {
+    gmapDiv.style.display = 'none';
+    leafletDiv.style.display = 'block';
+    btn.textContent = 'Switch to Google Maps View';
+    if (aiRouteMap) aiRouteMap.invalidateSize();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: OVERVIEW
+═══════════════════════════════════════════════════════════════════════ */
+function loadOverview() {
+  const allBookings   = DB.Bookings.byCustomer(user.id);
+  const active        = allBookings.filter(b => b.status === 'active' || b.status === 'confirmed');
+  const completed     = allBookings.filter(b => b.status === 'completed');
+  const totalSpent    = allBookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + (b.totalAmount || 0), 0);
+  const eventsAttended = [...new Set(completed.filter(b => b.eventId).map(b => b.eventId))].length;
+
+  document.getElementById('overview-stats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(99,102,241,0.15);">🅿️</div>
+      <div class="stat-value" style="color:var(--primary);">${allBookings.length}</div>
+      <div class="stat-label">Total Bookings</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(16,185,129,0.15);">✅</div>
+      <div class="stat-value" style="color:var(--success);">${active.length}</div>
+      <div class="stat-label">Active Bookings</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(20,184,166,0.15);">🎭</div>
+      <div class="stat-value" style="color:var(--teal);">${eventsAttended}</div>
+      <div class="stat-label">Events Attended</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.15);">💰</div>
+      <div class="stat-value" style="color:var(--warning);">${formatCurrency(totalSpent)}</div>
+      <div class="stat-label">Total Spent</div>
+    </div>
+  `;
+
+  // Upcoming bookings table
+  const upcoming = allBookings.filter(b => b.status === 'active' || b.status === 'confirmed').slice(0, 8);
+  const tbody = document.getElementById('upcoming-bookings-table');
+  if (upcoming.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📭</div><h4>No upcoming bookings</h4><p>Book a parking spot to get started.</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = upcoming.map(b => {
+      const lot   = DB.ParkingLots.find(b.lotId) || { name: b.lotName || 'Unknown Lot' };
+      const event = b.eventId ? DB.Events.find(b.eventId) : null;
+      return `<tr>
+        <td><strong>${lot.name}</strong></td>
+        <td>${event ? `<span class="badge badge-event">${event.name}</span>` : '<span class="badge badge-info">Daily</span>'}</td>
+        <td>${b.date ? formatDate(b.date) : (b.startTime ? formatDate(b.startTime) : '—')}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="showQR('${b.id}')">
+            <i data-lucide="eye"></i> View Pass
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Events near you
+  const events = DB.Events.upcoming().slice(0, 4);
+  const evContainer = document.getElementById('overview-events');
+  if (events.length === 0) {
+    evContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">🎭</div><h4>No upcoming events</h4><p>Check back soon!</p></div>`;
+  } else {
+    evContainer.innerHTML = events.map(ev => renderEventCard(ev, true)).join('');
+  }
+
+  lucide.createIcons();
+}
+
+function renderEventCard(ev, compact = false) {
+  const hasLots = ev.approvedParkingLots && ev.approvedParkingLots.length > 0;
+  return `
+    <div class="event-card">
+      <div class="event-card-header">
+        <h3>${ev.name}</h3>
+        <span class="badge badge-event">${ev.eventType || 'Event'}</span>
+      </div>
+      <div class="event-meta">
+        <div class="event-meta-row">📍 ${ev.venue || ev.address || 'TBA'}</div>
+        <div class="event-meta-row">📅 ${formatDate(ev.date)} &nbsp;|&nbsp; 🕐 ${ev.startTime || ''} – ${ev.endTime || ''}</div>
+        <div class="event-meta-row">👥 Expected: ${(ev.expectedVisitors || 0).toLocaleString()} visitors</div>
+      </div>
+      ${ev.description && !compact ? `<p style="font-size:0.8rem;color:var(--text-muted);">${ev.description}</p>` : ''}
+      <div class="event-footer">
+        <span style="font-size:0.78rem;color:var(--text-dim);">🅿️ ${hasLots ? ev.approvedParkingLots.length + ' parking lot(s)' : 'No parking approved yet'}</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-outline btn-sm" onclick="viewCustomerEvent('${ev.id}')">
+            <i data-lucide="eye"></i> View
+          </button>
+          ${hasLots
+            ? `<button class="btn btn-primary btn-sm" onclick="openEventBooking('${ev.id}')">
+                 <i data-lucide="car"></i> Book
+               </button>`
+            : `<span class="badge badge-pending">Awaiting Lots</span>`
+          }
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: FIND PARKING
+═══════════════════════════════════════════════════════════════════════ */
+let findMap = null;
+let parkingMarkers = [];
+
+function initFindMap() {
+  if (mapInitialized) return;
+  mapInitialized = true;
+
+  try {
+    findMap = MapEngine.initMap('find-map', 13.0827, 80.2707, 13);
+  } catch(e) {
+    // Fallback: init Leaflet directly
+    findMap = L.map('find-map').setView([13.0827, 80.2707], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(findMap);
+  }
+
+  // Plot DB lots
+  loadDBLots();
+}
+
+function loadDBLots() {
+  const lots = DB.ParkingLots.active();
+  lots.forEach(lot => {
+    if (!lot.lat || !lot.lng) return;
+    const marker = L.marker([lot.lat, lot.lng]).addTo(findMap);
+    marker.bindPopup(`
+      <strong>${lot.name}</strong><br/>
+      ${lot.address}<br/>
+      ${lot.availableSpaces}/${lot.totalSpaces} spaces &nbsp;|&nbsp; ₹${lot.pricePerHour}/hr
+      <br/><button onclick="window._openBookingFromMap('${lot.id}')" style="margin-top:6px;padding:4px 10px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Book Now</button>
+    `);
+    parkingMarkers.push(marker);
+  });
+  renderParkingList(lots);
+}
+
+// Expose to map popup onclick
+window._openBookingFromMap = function(lotId) {
+  const lot = DB.ParkingLots.find(lotId);
+  if (lot) openBookingModal(lot, null);
+};
+
+async function searchParking() {
+  const addr = document.getElementById('location-input').value.trim();
+  if (!addr) { showToast('Please enter a location to search.', 'warning'); return; }
+
+  showToast('Searching...', 'info');
+
+  try {
+    const result = await MapEngine.geocode(addr);
+    if (!result) { showToast('Location not found. Try a different search.', 'error'); return; }
+
+    findMap.flyTo([result.lat, result.lng], 14);
+
+    // Clear previous search markers (keep DB ones)
+    parkingMarkers.forEach(m => { if (m._isSearchResult) findMap.removeLayer(m); });
+    parkingMarkers = parkingMarkers.filter(m => !m._isSearchResult);
+
+    const nearby = await MapEngine.findNearbyParking(result.lat, result.lng, 2000);
+    if (nearby && nearby.length > 0) {
+      MapEngine.plotParkingLots(findMap, nearby);
+      // Also show in list
+      const dbLots = DB.ParkingLots.active();
+      renderParkingList([...dbLots, ...nearby.map(p => ({
+        id: 'osm_' + p.id,
+        name: p.name || 'Discovered Parking',
+        address: p.address || 'Nearby area',
+        type: p.type || 'Surface',
+        availableSpaces: '—',
+        totalSpaces: '—',
+        pricePerHour: null,
+        _isOSM: true
+      }))]);
+      showToast(`Found ${nearby.length} parking spots nearby!`, 'success');
+    } else {
+      showToast('No parking found nearby. Showing DB lots.', 'info');
+    }
+  } catch(e) {
+    showToast('Search failed. Please try again.', 'error');
+    console.error(e);
+  }
+}
+
+function resetMap() {
+  if (findMap) findMap.setView([13.0827, 80.2707], 13);
+  document.getElementById('location-input').value = '';
+  const dbLots = DB.ParkingLots.active();
+  renderParkingList(dbLots);
+}
+
+function renderParkingList(lots) {
+  const container = document.getElementById('parking-results');
+  if (!lots || lots.length === 0) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🅿️</div><h4>No parking found</h4><p>Try searching a different area.</p></div>`;
+    return;
+  }
+
+  container.innerHTML = lots.map(lot => {
+    const avail  = Number(lot.availableSpaces) || 0;
+    const total  = Number(lot.totalSpaces) || 0;
+    const pct    = total > 0 ? Math.round(((total - avail) / total) * 100) : 0;
+    const cls    = getOccupancyClass(pct);
+    const isOSM  = lot._isOSM;
+
+    return `
+      <div class="lot-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+          <h4>${lot.name}</h4>
+          ${isOSM ? '<span class="badge badge-info">Discovered</span>' : '<span class="badge badge-active">DB Lot</span>'}
+        </div>
+        <p class="lot-addr">📍 ${lot.address || '—'}</p>
+        <div class="lot-meta">
+          <div class="lot-meta-item">
+            <span>Type</span>
+            <span>${lot.type || 'Parking'}</span>
+          </div>
+          ${!isOSM ? `
+          <div class="lot-meta-item">
+            <span>Available</span>
+            <span>${lot.availableSpaces} / ${lot.totalSpaces}</span>
+          </div>
+          <div class="lot-meta-item">
+            <span>Rating</span>
+            <span>⭐ ${lot.rating || '—'}</span>
+          </div>` : ''}
+        </div>
+        ${!isOSM && total > 0 ? `
+        <div class="occupancy-bar">
+          <div class="occupancy-fill ${cls}" style="width:${pct}%;"></div>
+        </div>` : ''}
+        <div class="lot-footer">
+          ${lot.pricePerHour ? `<div class="lot-price">₹${lot.pricePerHour}<span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);">/hr</span></div>` : '<div class="lot-price" style="color:var(--text-muted);">Price N/A</div>'}
+          ${isOSM
+            ? `<button class="btn btn-outline btn-sm" disabled title="Booking not available for discovered lots">External Lot</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="openBookingFromList('${lot.id}')">
+                 <i data-lucide="car"></i> Book Now
+               </button>`
+          }
+        </div>
+      </div>`;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+function openBookingFromList(lotId) {
+  const lot = DB.ParkingLots.find(lotId);
+  if (lot) openBookingModal(lot, null);
+  else showToast('Lot not found.', 'error');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: BROWSE EVENTS
+═══════════════════════════════════════════════════════════════════════ */
+function loadEvents() {
+  const events = DB.Events.upcoming();
+  const container = document.getElementById('events-grid');
+  if (events.length === 0) {
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-icon">🎭</div><h4>No upcoming events</h4><p>Check back soon!</p></div>`;
+  } else {
+    container.innerHTML = events.map(ev => renderEventCard(ev, false)).join('');
+  }
+  lucide.createIcons();
+}
+
+function openEventBooking(eventId) {
+  const ev = DB.Events.find(eventId);
+  if (!ev) { showToast('Event not found.', 'error'); return; }
+  if (!ev.approvedParkingLots || ev.approvedParkingLots.length === 0) {
+    showToast('No approved parking lots for this event yet.', 'warning');
+    return;
+  }
+  // Pick first approved lot for demo; could show a lot-picker
+  const lot = DB.ParkingLots.find(ev.approvedParkingLots[0]);
+  if (!lot) { showToast('Parking lot not available.', 'error'); return; }
+  openBookingModal(lot, eventId);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: MY BOOKINGS
+═══════════════════════════════════════════════════════════════════════ */
+function loadBookings(tab) {
+  tab = tab || currentBookingTab;
+  currentBookingTab = tab;
+  const all = DB.Bookings.byCustomer(user.id);
+  let filtered;
+  if (tab === 'active')    filtered = all.filter(b => b.status === 'active' || b.status === 'confirmed');
+  if (tab === 'completed') filtered = all.filter(b => b.status === 'completed');
+  if (tab === 'cancelled') filtered = all.filter(b => b.status === 'cancelled');
+
+  const tbody = document.getElementById('bookings-table-body');
+  if (!filtered || filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><h4>No ${tab} bookings</h4><p>Your ${tab} bookings will appear here.</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = filtered.map(b => {
+      const lot   = DB.ParkingLots.find(b.lotId) || { name: b.lotName || 'Unknown' };
+      const event = b.eventId ? DB.Events.find(b.eventId) : null;
+      const isActive = b.status === 'active' || b.status === 'confirmed';
+      return `<tr>
+        <td><code style="color:var(--primary);font-size:0.78rem;">${shortId(b.id)}</code></td>
+        <td><strong>${lot.name}</strong></td>
+        <td>
+          <div style="font-size:0.82rem;">${b.vehicleNumber || '—'}</div>
+          <div style="font-size:0.72rem;color:var(--text-muted);">${b.vehicleType || ''}</div>
+        </td>
+        <td>${event ? `<span class="badge badge-event" style="font-size:0.68rem;">${event.name}</span>` : '<span class="badge badge-info">Daily</span>'}</td>
+        <td>${b.duration ? b.duration + ' hrs' : '—'}</td>
+        <td style="font-weight:700;color:var(--teal);">${formatCurrency(b.totalAmount)}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-outline btn-sm" onclick="showQR('${b.id}')" title="View Pass & QR Code">
+              <i data-lucide="eye"></i> View Pass
+            </button>
+            ${isActive ? `<button class="btn btn-danger btn-sm" onclick="cancelBooking('${b.id}')">
+              <i data-lucide="x-circle"></i>
+            </button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  lucide.createIcons();
+}
+
+function showBookingTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadBookings(tab);
+}
+
+function cancelBooking(bookingId) {
+  if (!confirm('Are you sure you want to cancel this booking? This action cannot be undone.')) return;
+  DB.Bookings.cancel(bookingId);
+  DB.Notifications.push(user.id, 'Your booking has been cancelled.', 'booking');
+  showToast('Booking cancelled.', 'info');
+  loadBookings();
+  updateNotifBadge();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: NOTIFICATIONS
+═══════════════════════════════════════════════════════════════════════ */
+function loadNotifications() {
+  const notifs = DB.Notifications.forUser(user.id);
+  const list   = document.getElementById('notif-list');
+
+  if (notifs.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div><h4>All caught up!</h4><p>No notifications yet.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = notifs.map(n => `
+    <div class="notif-item ${n.read ? '' : 'unread'}">
+      <div class="notif-icon">${notifIcon(n.type)}</div>
+      <div class="notif-content">
+        <div class="notif-msg">${n.message}</div>
+        <div class="notif-time">${relativeTime(n.createdAt)}</div>
+      </div>
+      ${!n.read ? '<div class="unread-dot"></div>' : ''}
+    </div>
+  `).join('');
+}
+
+function markAllRead() {
+  DB.Notifications.markAllRead(user.id);
+  loadNotifications();
+  updateNotifBadge();
+  showToast('All notifications marked as read.', 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: REVIEWS
+═══════════════════════════════════════════════════════════════════════ */
+function loadReviews() {
+  const bookings = DB.Bookings.byCustomer(user.id).filter(b => b.status === 'completed');
+  const container = document.getElementById('reviews-container');
+
+  if (bookings.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⭐</div><h4>No completed bookings</h4><p>Complete a booking to leave a review.</p></div>`;
+    return;
+  }
+
+  // Get unique lots
+  const uniqueLotIds = [...new Set(bookings.map(b => b.lotId).filter(Boolean))];
+  const existingReviews = DB.Reviews.byCustomer(user.id);
+
+  container.innerHTML = uniqueLotIds.map(lotId => {
+    const lot = DB.ParkingLots.find(lotId);
+    if (!lot) return '';
+    const existing = existingReviews.find(r => r.lotId === lotId);
+    reviewRatings[lotId] = reviewRatings[lotId] || (existing ? existing.rating : 0);
+
+    return `
+      <div class="card review-card" style="margin-bottom:16px;" id="review-card-${lotId}">
+        <div class="section-header">
+          <div>
+            <h3>🅿️ ${lot.name}</h3>
+            <div style="font-size:0.78rem;color:var(--text-muted);">📍 ${lot.address}</div>
+          </div>
+          ${lot.rating ? `<div style="font-size:0.88rem;">⭐ ${lot.rating} (${lot.reviewCount} reviews)</div>` : ''}
+        </div>
+
+        ${existing ? `
+          <div class="existing-review">
+            <div style="margin-bottom:4px;font-weight:600;">✅ Your Review</div>
+            <div style="color:var(--warning);">${'★'.repeat(existing.rating)}${'☆'.repeat(5 - existing.rating)}</div>
+            <div style="margin-top:4px;color:var(--text-muted);">${existing.comment || 'No comment.'}</div>
+            <div style="font-size:0.72rem;color:var(--text-dim);margin-top:4px;">${formatDate(existing.createdAt)}</div>
+          </div>
+        ` : `
+          <div>
+            <div style="margin-bottom:8px;font-size:0.82rem;color:var(--text-muted);">Rate your experience:</div>
+            <div class="star-rating" id="stars-${lotId}">
+              ${[1,2,3,4,5].map(n =>
+                `<span class="star ${(reviewRatings[lotId]||0) >= n ? 'active' : ''}"
+                  onclick="setRating('${lotId}', ${n})">★</span>`
+              ).join('')}
+            </div>
+            <textarea id="review-comment-${lotId}" placeholder="Share your experience…" style="width:100%;margin-top:12px;"></textarea>
+            <button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="submitReview('${lotId}')">
+              <i data-lucide="send"></i> Submit Review
+            </button>
+          </div>
+        `}
+      </div>`;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+function setRating(lotId, rating) {
+  reviewRatings[lotId] = rating;
+  const stars = document.querySelectorAll(`#stars-${lotId} .star`);
+  stars.forEach((s, i) => s.classList.toggle('active', i < rating));
+}
+
+function submitReview(lotId) {
+  const rating  = reviewRatings[lotId] || 0;
+  const comment = (document.getElementById(`review-comment-${lotId}`) || {}).value || '';
+  if (!rating) { showToast('Please select a star rating.', 'warning'); return; }
+
+  DB.Reviews.create({ customerId: user.id, lotId, rating, comment });
+  showToast('Review submitted! Thank you. ⭐', 'success');
+  loadReviews();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: PROFILE
+═══════════════════════════════════════════════════════════════════════ */
+function loadProfile() {
+  const fullUser = DB.Users.find(user.id) || user;
+  document.getElementById('p-name').value     = fullUser.name     || '';
+  document.getElementById('p-email').value    = fullUser.email    || '';
+  document.getElementById('p-phone').value    = fullUser.phone    || '';
+  document.getElementById('p-username').value = fullUser.username || '';
+}
+
+function saveProfile() {
+  const name  = document.getElementById('p-name').value.trim();
+  const email = document.getElementById('p-email').value.trim();
+  const phone = document.getElementById('p-phone').value.trim();
+  if (!name || !email) { showToast('Name and email are required.', 'warning'); return; }
+
+  DB.Users.update(user.id, { name, email, phone });
+  // Update session
+  const session = Auth.current();
+  if (session) {
+    session.name  = name;
+    session.email = email;
+    sessionStorage.setItem('evetramasy_session', JSON.stringify(session));
+  }
+  document.getElementById('user-name').textContent = name;
+  document.getElementById('user-avatar').textContent = name[0].toUpperCase();
+  showToast('Profile updated successfully! ✅', 'success');
+}
+
+function changePassword() {
+  const cur  = document.getElementById('p-cur-pass').value;
+  const next = document.getElementById('p-new-pass').value;
+  const conf = document.getElementById('p-conf-pass').value;
+  if (!cur || !next || !conf) { showToast('All password fields are required.', 'warning'); return; }
+  if (next.length < 6) { showToast('New password must be at least 6 characters.', 'warning'); return; }
+  if (next !== conf) { showToast('New passwords do not match.', 'error'); return; }
+
+  const fullUser = DB.Users.find(user.id);
+  if (!fullUser || fullUser.password !== cur) { showToast('Current password is incorrect.', 'error'); return; }
+
+  DB.Users.update(user.id, { password: next });
+  document.getElementById('p-cur-pass').value  = '';
+  document.getElementById('p-new-pass').value  = '';
+  document.getElementById('p-conf-pass').value = '';
+  showToast('Password changed successfully! 🔒', 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE: MY VEHICLES (REGISTER & VIEW OWNED VEHICLES)
+═══════════════════════════════════════════════════════════════════════ */
+let currentVehiclesFilter = 'all';
+
+function getColorHex(color) {
+  const c = (color || '').toLowerCase();
+  if (c.includes('white')) return '#ffffff';
+  if (c.includes('black')) return '#0f172a';
+  if (c.includes('red'))   return '#ef4444';
+  if (c.includes('blue'))  return '#3b82f6';
+  if (c.includes('green')) return '#10b981';
+  if (c.includes('grey') || c.includes('gray') || c.includes('silver')) return '#94a3b8';
+  if (c.includes('yellow') || c.includes('gold')) return '#eab308';
+  return '#cbd5e1';
+}
+
+function loadMyVehicles() {
+  const vehicles = DB.Vehicles.byUser(user.id);
+
+  // Update top statistics
+  const total = vehicles.length;
+  const defVeh = vehicles.find(v => v.isDefault);
+  const evCount = vehicles.filter(v => v.fuelType === 'Electric' || v.vehicleType === 'Electric Vehicle').length;
+  const fastagCount = vehicles.filter(v => v.fastagId && v.fastagId.trim().length > 0).length;
+
+  const totalEl = document.getElementById('stat-veh-total');
+  const defEl = document.getElementById('stat-veh-default');
+  const evEl = document.getElementById('stat-veh-ev');
+  const fastagEl = document.getElementById('stat-veh-fastag');
+  const badgeEl = document.getElementById('veh-count-badge');
+
+  if (totalEl) totalEl.textContent = total;
+  if (defEl) defEl.textContent = defVeh ? defVeh.plateNumber : (total > 0 ? vehicles[0].plateNumber : 'None');
+  if (evEl) evEl.textContent = evCount;
+  if (fastagEl) fastagEl.textContent = fastagCount > 0 ? `${fastagCount} Linked` : 'Active';
+  if (badgeEl) badgeEl.textContent = total;
+
+  renderVehiclesList(currentVehiclesFilter);
+}
+
+function filterVehicles(filter, btn) {
+  currentVehiclesFilter = filter;
+  document.querySelectorAll('.veh-filter').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderVehiclesList(filter);
+}
+
+function renderVehiclesList(filter = 'all') {
+  const allVehicles = DB.Vehicles.byUser(user.id);
+  let vehicles = allVehicles;
+
+  if (filter === 'Car') {
+    vehicles = allVehicles.filter(v => v.vehicleType === 'Car' || v.vehicleType === 'SUV' || v.vehicleType === 'Van');
+  } else if (filter === 'Two-Wheeler') {
+    vehicles = allVehicles.filter(v => v.vehicleType === 'Two-Wheeler');
+  } else if (filter === 'Electric') {
+    vehicles = allVehicles.filter(v => v.fuelType === 'Electric' || v.vehicleType === 'Electric Vehicle');
+  }
+
+  const container = document.getElementById('vehicles-list-grid');
+  if (!container) return;
+
+  if (vehicles.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-icon">🚗</div>
+        <h4>${allVehicles.length === 0 ? 'No vehicles registered yet' : 'No matching vehicles found'}</h4>
+        <p>${allVehicles.length === 0 
+          ? 'Add your car, bike, or EV to unlock 1-click event parking passes and smart gate detection.' 
+          : 'Try switching the category filter or register another vehicle.'}</p>
+        <button class="btn btn-primary btn-sm" style="margin-top:14px;" onclick="switchVehicleTab('register')">
+          <i data-lucide="plus-circle"></i> Register a Vehicle
+        </button>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = vehicles.map(v => {
+    return `
+      <div class="vehicle-card ${v.isDefault ? 'is-default' : ''}">
+        <div class="vehicle-card-header">
+          <div class="plate-badge">
+            <span class="plate-country">IND</span>
+            <span class="plate-number">${v.plateNumber}</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            ${v.isDefault ? `<span class="badge" style="background:rgba(245,158,11,0.15);color:var(--warning);border:1px solid rgba(245,158,11,0.3);font-size:0.75rem;">⭐ Default</span>` : ''}
+            <span class="badge badge-info" style="font-size:0.75rem;">${v.vehicleType}</span>
+            ${v.fastagId ? `<span class="badge" style="background:rgba(20,184,166,0.15);color:var(--teal);border:1px solid rgba(20,184,166,0.3);font-size:0.72rem;">📶 FASTag</span>` : ''}
+          </div>
+        </div>
+
+        <div>
+          <h4 style="font-size:1.05rem;font-weight:700;margin-bottom:6px;">${v.makeModel || v.vehicleType}</h4>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="vehicle-spec-chip">
+              <span class="vehicle-color-dot" style="background:${getColorHex(v.color)};"></span>
+              ${v.color || 'White'}
+            </span>
+            <span class="vehicle-spec-chip">
+              ${v.fuelType === 'Electric' ? '⚡' : '⛽'} ${v.fuelType || 'Petrol'}
+            </span>
+            ${v.fastagId ? `<span class="vehicle-spec-chip" title="FASTag ID">🏷️ ${v.fastagId}</span>` : ''}
+            <span class="vehicle-spec-chip" style="font-size:0.7rem;">📅 Added ${new Date(v.createdAt).toLocaleDateString()}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border);margin-top:auto;flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;gap:6px;">
+            ${!v.isDefault ? `
+              <button class="btn btn-outline btn-sm" onclick="setDefaultVehicle('${v.id}')" title="Set as primary vehicle">
+                ⭐ Set Default
+              </button>` : ''}
+            <button class="btn btn-teal btn-sm" onclick="quickBookWithVehicle('${v.id}')" title="Find and book parking with this vehicle">
+              🅿️ Book Parking
+            </button>
+          </div>
+          <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:rgba(239,68,68,0.3);" onclick="deleteVehicle('${v.id}')" title="Remove vehicle">
+            <i data-lucide="trash-2"></i> Delete
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+function switchVehicleTab(tab) {
+  const viewSec = document.getElementById('section-vehicles-view');
+  const regSec  = document.getElementById('section-vehicles-register');
+  const tabView = document.getElementById('tab-veh-view');
+  const tabReg  = document.getElementById('tab-veh-register');
+  const quickBtn = document.getElementById('btn-quick-reg-veh');
+
+  if (tab === 'view') {
+    if (viewSec) viewSec.style.display = 'block';
+    if (regSec)  regSec.style.display  = 'none';
+    if (tabView) tabView.classList.add('active');
+    if (tabReg)  tabReg.classList.remove('active');
+    if (quickBtn) quickBtn.style.display = 'inline-flex';
+    loadMyVehicles();
+  } else {
+    if (viewSec) viewSec.style.display = 'none';
+    if (regSec)  regSec.style.display  = 'block';
+    if (tabView) tabView.classList.remove('active');
+    if (tabReg)  tabReg.classList.add('active');
+    if (quickBtn) quickBtn.style.display = 'none';
+    const plateInp = document.getElementById('veh-reg-plate');
+    if (plateInp) plateInp.focus();
+  }
+}
+
+function handleRegisterVehicle(e) {
+  e.preventDefault();
+  const plate = document.getElementById('veh-reg-plate').value.trim();
+  const type  = document.getElementById('veh-reg-type').value;
+  const model = document.getElementById('veh-reg-model').value.trim();
+  const fuel  = document.getElementById('veh-reg-fuel').value;
+  const color = document.getElementById('veh-reg-color').value;
+  const fastag = document.getElementById('veh-reg-fastag').value.trim();
+  const isDefault = document.getElementById('veh-reg-default').checked;
+
+  if (!plate || !model) {
+    showToast('Please provide both registration plate and vehicle model.', 'warning');
+    return;
+  }
+
+  const res = DB.Vehicles.create({
+    userId: user.id,
+    plateNumber: plate,
+    vehicleType: type,
+    makeModel: model,
+    fuelType: fuel,
+    color,
+    fastagId: fastag,
+    isDefault
+  });
+
+  if (res.error) {
+    showToast(res.error, 'error');
+    return;
+  }
+
+  document.getElementById('form-register-vehicle').reset();
+  showToast(`Vehicle ${plate} registered successfully! 🚘`, 'success');
+  switchVehicleTab('view');
+}
+
+function deleteVehicle(id) {
+  const v = DB.Vehicles.find(id);
+  if (!v) return;
+  if (!confirm(`Are you sure you want to remove vehicle ${v.plateNumber} (${v.makeModel || v.vehicleType})?`)) return;
+
+  DB.Vehicles.delete(id);
+  showToast('Vehicle removed from your garage.', 'info');
+  loadMyVehicles();
+}
+
+function setDefaultVehicle(id) {
+  DB.Vehicles.setDefault(user.id, id);
+  const v = DB.Vehicles.find(id);
+  showToast(`${v ? v.plateNumber : 'Vehicle'} is now your primary default vehicle! ⭐`, 'success');
+  loadMyVehicles();
+}
+
+function quickBookWithVehicle(id) {
+  const v = DB.Vehicles.find(id);
+  if (!v) return;
+  showPage('find-parking');
+  showToast(`Vehicle ${v.plateNumber} selected! Choose any parking lot to book.`, 'info');
+}
+
+function populateBookingVehicleSelect(preselectedPlate) {
+  const select = document.getElementById('bk-vehicle-select');
+  if (!select) return;
+
+  const vehicles = DB.Vehicles.byUser(user.id);
+  if (vehicles.length === 0) {
+    select.innerHTML = `<option value="">-- No registered vehicles (Enter plate below) --</option>`;
+    return;
+  }
+
+  let optionsHtml = `<option value="">-- Choose from your registered vehicles --</option>`;
+  let defaultPlate = preselectedPlate || '';
+
+  vehicles.forEach(v => {
+    const isSelected = (!defaultPlate && v.isDefault) || (defaultPlate && v.plateNumber === defaultPlate);
+    if (isSelected) defaultPlate = v.plateNumber;
+    optionsHtml += `<option value="${v.plateNumber}" data-type="${v.vehicleType}" ${isSelected ? 'selected' : ''}>${v.plateNumber} - ${v.makeModel || v.vehicleType} ${v.isDefault ? '⭐' : ''}</option>`;
+  });
+
+  select.innerHTML = optionsHtml;
+
+  // If a vehicle is selected, sync the inputs
+  if (defaultPlate) {
+    const match = vehicles.find(v => v.plateNumber === defaultPlate);
+    if (match) {
+      document.getElementById('bk-vehicle-no').value = match.plateNumber;
+      syncVehicleTypeSelect(match.vehicleType);
+    }
+  }
+}
+
+function onBookingVehicleSelect() {
+  const select = document.getElementById('bk-vehicle-select');
+  if (!select) return;
+  const plate = select.value;
+  if (!plate) return;
+
+  const opt = select.options[select.selectedIndex];
+  document.getElementById('bk-vehicle-no').value = plate;
+  const vType = opt.getAttribute('data-type');
+  if (vType) syncVehicleTypeSelect(vType);
+}
+
+function syncVehicleTypeSelect(vType) {
+  const select = document.getElementById('bk-vehicle-type');
+  if (!select || !vType) return;
+  const t = vType.toLowerCase();
+  for (let i = 0; i < select.options.length; i++) {
+    const optVal = select.options[i].value.toLowerCase();
+    if (optVal === t || (t.includes('car') && optVal === 'car') || (t.includes('bike') && optVal === 'bike') || (t.includes('two') && optVal === 'bike')) {
+      select.selectedIndex = i;
+      break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BOOKING MODAL
+═══════════════════════════════════════════════════════════════════════ */
+function openBookingModal(lot, eventId) {
+  currentBookingLot   = lot;
+  currentBookingEvent = eventId || null;
+
+  // Lot info card
+  document.getElementById('booking-lot-info').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:700;">${lot.name}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted);">📍 ${lot.address || ''}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="lot-price">₹${lot.pricePerHour}<span style="font-size:0.7rem;color:var(--text-muted);">/hr</span></div>
+        <div style="font-size:0.72rem;color:var(--text-muted);">${lot.availableSpaces} spaces free</div>
+      </div>
+    </div>
+  `;
+
+  // Default date = today
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('bk-date').value  = today;
+  document.getElementById('bk-start').value = '09:00';
+  document.getElementById('bk-end').value   = '11:00';
+  document.getElementById('bk-vehicle-no').value = '';
+
+  // Populate registered vehicles
+  populateBookingVehicleSelect();
+
+  recalcBooking();
+
+  document.getElementById('booking-modal').classList.add('open');
+  lucide.createIcons();
+}
+
+function closeBookingModal() {
+  document.getElementById('booking-modal').classList.remove('open');
+  currentBookingLot   = null;
+  currentBookingEvent = null;
+}
+
+function recalcBooking() {
+  const start = document.getElementById('bk-start').value;
+  const end   = document.getElementById('bk-end').value;
+  if (!start || !end || !currentBookingLot) return;
+
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let dur = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+  if (dur <= 0) dur = 0;
+
+  const amount = Math.round(dur * (currentBookingLot.pricePerHour || 0));
+  document.getElementById('bk-duration').textContent = dur.toFixed(1) + ' hrs';
+  document.getElementById('bk-total').textContent    = formatCurrency(amount);
+}
+
+// Live recalculate
+document.getElementById('bk-start').addEventListener('change', recalcBooking);
+document.getElementById('bk-end').addEventListener('change', recalcBooking);
+
+function confirmBooking() {
+  if (!currentBookingLot) return;
+
+  const vehicleNo   = document.getElementById('bk-vehicle-no').value.trim();
+  const vehicleType = document.getElementById('bk-vehicle-type').value;
+  const date        = document.getElementById('bk-date').value;
+  const startTime   = document.getElementById('bk-start').value;
+  const endTime     = document.getElementById('bk-end').value;
+
+  if (!vehicleNo)  { showToast('Please enter your vehicle number.', 'warning'); return; }
+  if (!date)       { showToast('Please select a date.', 'warning'); return; }
+  if (!startTime || !endTime) { showToast('Please set start and end times.', 'warning'); return; }
+
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  const dur       = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+  if (dur <= 0)  { showToast('End time must be after start time.', 'error'); return; }
+
+  const amount = Math.round(dur * (currentBookingLot.pricePerHour || 0));
+
+  const booking = DB.Bookings.create({
+    customerId:    user.id,
+    lotId:         currentBookingLot.id,
+    eventId:       currentBookingEvent,
+    vehicleNumber: vehicleNo.toUpperCase(),
+    vehicleType,
+    date,
+    startTime:     `${date}T${startTime}`,
+    endTime:       `${date}T${endTime}`,
+    duration:      parseFloat(dur.toFixed(1)),
+    totalAmount:   amount
+  });
+
+  DB.Notifications.push(user.id, `Booking confirmed for ${currentBookingLot.name}! 🎉`, 'booking');
+
+  closeBookingModal();
+  showToast('Booking confirmed! 🎉', 'success');
+  updateNotifBadge();
+
+  // Refresh current page data
+  const activePage = document.querySelector('.page.active');
+  if (activePage) {
+    const pName = activePage.getAttribute('data-page');
+    if (pName === 'overview')  loadOverview();
+    if (pName === 'bookings')  loadBookings();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   QR CODE MODAL
+═══════════════════════════════════════════════════════════════════════ */
+function showQR(bookingId) {
+  const booking = DB.Bookings.find(bookingId);
+  if (!booking) { showToast('Booking not found.', 'error'); return; }
+
+  const lot   = DB.ParkingLots.find(booking.lotId) || { name: booking.lotName || 'Unknown Lot' };
+  const event = booking.eventId ? DB.Events.find(booking.eventId) : null;
+
+  // Clear previous QR
+  const qrDiv = document.getElementById('qr-canvas');
+  qrDiv.innerHTML = '';
+
+  new QRCode(qrDiv, {
+    text: booking.qrCode || bookingId,
+    width: 180,
+    height: 180,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  const startDate = booking.date || (booking.startTime ? booking.startTime.split('T')[0] : null);
+
+  document.getElementById('qr-details').innerHTML = `
+    <div class="qr-detail-row">
+      <span>Booking ID</span>
+      <span>${shortId(booking.id)}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Parking Lot</span>
+      <span>${lot.name}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Event</span>
+      <span>${event ? event.name : 'Daily Parking'}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Date</span>
+      <span>${startDate ? formatDate(startDate) : '—'}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Vehicle No</span>
+      <span>${booking.vehicleNumber || '—'}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Duration</span>
+      <span>${booking.duration ? booking.duration + ' hrs' : '—'}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Amount</span>
+      <span style="color:var(--teal);font-weight:700;">${formatCurrency(booking.totalAmount)}</span>
+    </div>
+    <div class="qr-detail-row">
+      <span>Status</span>
+      <span><span class="badge badge-${booking.status}">${booking.status}</span></span>
+    </div>
+  `;
+
+  document.getElementById('qr-modal').classList.add('open');
+}
+
+function closeQRModal() {
+  document.getElementById('qr-modal').classList.remove('open');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EVENT DETAIL MODAL
+═══════════════════════════════════════════════════════════════════════ */
+function viewCustomerEvent(eventId) {
+  const ev = DB.Events.find(eventId);
+  if (!ev) { showToast('Event not found.', 'error'); return; }
+
+  document.getElementById('ev-modal-title').textContent = ev.name;
+
+  const lots = (ev.approvedParkingLots || []).map(id => DB.ParkingLots.find(id)).filter(Boolean);
+  const lotsHtml = lots.length === 0
+    ? '<p class="text-muted" style="font-size:0.85rem;">No parking lots approved for this event yet.</p>'
+    : lots.map(l => `
+        <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">${l.name}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">📍 ${l.address || ''} · ${l.availableSpaces} spaces free</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="color:var(--teal);font-weight:700;">₹${l.pricePerHour}/hr</div>
+            <button class="btn btn-primary btn-sm" style="margin-top:4px;" onclick="closeEventDetailModal(); openBookingModal(DB.ParkingLots.find('${l.id}'), '${ev.id}')">
+              Select
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+  document.getElementById('ev-modal-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;margin-bottom:14px;">
+      <div><span style="color:var(--text-muted)">Type:</span> <b>${ev.eventType || 'Event'}</b></div>
+      <div><span style="color:var(--text-muted)">Venue:</span> <b>${ev.venue || '—'}</b></div>
+      <div><span style="color:var(--text-muted)">Date:</span> <b>${formatDate(ev.date)}</b></div>
+      <div><span style="color:var(--text-muted)">Time:</span> <b>${ev.startTime || ''} – ${ev.endTime || ''}</b></div>
+      <div><span style="color:var(--text-muted)">Expected:</span> <b>${(ev.expectedVisitors || 0).toLocaleString()} visitors</b></div>
+      <div><span style="color:var(--text-muted)">Address:</span> <b>${ev.address || '—'}</b></div>
+    </div>
+    ${ev.description ? `<p style="font-size:0.82rem;color:var(--text-muted);background:rgba(255,255,255,0.03);padding:10px;border-radius:8px;border:1px solid var(--border);margin-bottom:14px;">${ev.description}</p>` : ''}
+    <h4 style="font-size:0.88rem;margin-bottom:10px;">🅿️ Approved Parking Lots (${lots.length})</h4>
+    ${lotsHtml}
+  `;
+
+  const bookBtn = document.getElementById('ev-modal-book-btn');
+  if (lots.length > 0) {
+    bookBtn.style.display = 'inline-flex';
+    bookBtn.onclick = () => {
+      closeEventDetailModal();
+      openEventBooking(ev.id);
+    };
+  } else {
+    bookBtn.style.display = 'none';
+  }
+
+  document.getElementById('event-detail-modal').classList.add('open');
+  lucide.createIcons();
+}
+
+function closeEventDetailModal() {
+  document.getElementById('event-detail-modal').classList.remove('open');
+}
+
+// Close modals on overlay click
+document.getElementById('booking-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeBookingModal();
+});
+document.getElementById('qr-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeQRModal();
+});
+document.getElementById('event-detail-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEventDetailModal();
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════════════ */
+lucide.createIcons();
+loadOverview();
+</script>
+</body>
+</html>

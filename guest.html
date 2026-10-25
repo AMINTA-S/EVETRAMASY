@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EVETRAMASY — Guest</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="css/main.css"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/map.js"></script>
+  <style>
+    /* Guest-specific overrides */
+    .guest-banner {
+      background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05));
+      border-bottom: 1px solid rgba(245,158,11,0.3);
+      padding: 10px 24px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      color: #fcd34d;
+    }
+
+    .sidebar.role-guest .sidebar-brand .brand-subtitle {
+      color: #fbbf24;
+    }
+
+    .avatar-guest {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(245,158,11,0.3), rgba(245,158,11,0.1));
+      border: 2px solid rgba(245,158,11,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin: 0 auto 10px;
+    }
+
+    /* Feature highlight cards */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 900px) {
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+
+    .feature-card {
+      text-align: center;
+      padding: 28px 20px;
+    }
+
+    .feature-icon {
+      font-size: 40px;
+      margin-bottom: 14px;
+    }
+
+    .feature-card h3 {
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+
+    .feature-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Event cards grid */
+    .events-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .event-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .event-name {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .event-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .event-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .lot-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .lot-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .lot-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .lot-meta {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    .restricted-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10,10,20,0.92);
+      backdrop-filter: blur(6px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+      padding: 24px;
+      border-radius: inherit;
+    }
+
+    .restricted-overlay h3 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    .restricted-overlay p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .lock-notice {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    .locked-inline {
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 13px;
+      text-align: center;
+      display: none;
+    }
+
+    .locked-inline a { color: var(--primary-light); margin: 0 4px; }
+
+    .result-card {
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .result-icon {
+      font-size: 24px;
+      margin-top: 2px;
+    }
+
+    .result-info { flex: 1; }
+
+    .result-name {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+
+    .result-addr {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .step-number {
+      min-width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      font-size: 12px;
+      color: var(--primary-light);
+    }
+
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      font-size: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: slideInRight 0.3s ease;
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(60px); opacity: 0; }
+      to   { transform: translateX(0);   opacity: 1; }
+    }
+
+    .toast-success { border-color: rgba(16,185,129,0.4); }
+    .toast-error   { border-color: rgba(239,68,68,0.4);  }
+    .toast-info    { border-color: rgba(99,102,241,0.4); }
+
+    .map-container {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 14px;
+    }
+
+    .search-bar input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      flex: 1;
+      padding: 11px 0;
+    }
+
+    .search-bar input::placeholder { color: var(--text-muted); }
+
+    .flex-gap-8 { display: flex; gap: 8px; }
+    .flex-gap-16 { display: flex; gap: 16px; }
+    .mb-16 { margin-bottom: 16px; }
+    .mt-8  { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .btn-full { width: 100%; }
+    .text-muted { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div class="dashboard-layout">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar role-guest">
+    <div class="sidebar-brand">
+      <div class="brand-logo">🅿️</div>
+      <div>
+        <div class="brand-name">EVETRAMASY</div>
+        <div class="brand-subtitle">Guest Mode</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; padding: 20px 0 16px; border-bottom: 1px solid var(--border); margin-bottom:12px">
+      <div class="avatar-guest">👤</div>
+      <div style="font-weight:700; font-size:14px">Guest User</div>
+      <div style="font-size:12px; color:var(--text-muted); margin-top:3px">Browsing as Guest</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="explore" onclick="showPage('explore')">
+        <span class="nav-icon">🏠</span>
+        <span>Explore</span>
+      </a>
+      <a class="nav-item" data-page="find-parking" onclick="showPage('find-parking')">
+        <span class="nav-icon">🗺️</span>
+        <span>Find Parking</span>
+      </a>
+      <a class="nav-item" data-page="events" onclick="showPage('events')">
+        <span class="nav-icon">🎭</span>
+        <span>Events</span>
+      </a>
+      <a class="nav-item" data-page="how-it-works" onclick="showPage('how-it-works')">
+        <span class="nav-icon">ℹ️</span>
+        <span>How It Works</span>
+      </a>
+      <a class="nav-item" href="index.html">
+        <span class="nav-icon">🔐</span>
+        <span>Sign In / Register</span>
+      </a>
+    </nav>
+
+    <div style="margin-top:auto; padding:16px; border-top:1px solid var(--border)">
+      <a href="register.html" class="btn btn-warning btn-full" style="text-align:center">📝 Register Free</a>
+      <div style="font-size:11px; color:var(--text-muted); text-align:center; margin-top:8px">It's free forever for customers</div>
+    </div>
+  </aside>
+
+  <!-- ══════════ MAIN CONTENT ══════════ -->
+  <div class="main-content">
+
+    <!-- Guest Banner -->
+    <div class="guest-banner">
+      👤 You're browsing as a <strong style="margin: 0 4px">Guest</strong>. Sign up to book parking, join events, and more.
+      <a href="register.html" class="btn btn-warning btn-sm" style="margin-left:12px">Register Free →</a>
+    </div>
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">🏠 Explore EVETRAMASY</div>
+      <div class="topbar-actions">
+        <a href="index.html" class="btn btn-ghost btn-sm">🔐 Sign In</a>
+        <a href="register.html" class="btn btn-primary btn-sm">🚀 Register</a>
+      </div>
+    </div>
+
+    <!-- ════ PAGE: EXPLORE ════ -->
+    <div class="page active" id="page-explore">
+      <!-- Hero -->
+      <div class="card card-lg" style="background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(20,184,166,0.08));border-color:rgba(99,102,241,0.3);margin-bottom:24px;text-align:center;padding:48px 32px">
+        <div style="font-size:48px;margin-bottom:16px">🅿️🎭</div>
+        <h1 style="font-size:32px;margin-bottom:12px">Welcome to <span class="brand">EVETRAMASY</span></h1>
+        <p style="font-size:16px;color:var(--text-muted);max-width:500px;margin:0 auto 24px">
+          Find parking for events and daily life. Real-time availability, instant booking — all in one place.
+        </p>
+        <a href="register.html" class="btn btn-primary btn-lg">🚀 Get Started Free</a>
+      </div>
+
+      <!-- Feature highlights -->
+      <div class="feature-grid">
+        <div class="card feature-card">
+          <div class="feature-icon">🗺️</div>
+          <h3>Real Parking Data</h3>
+          <p>Live availability from thousands of parking lots across the city.</p>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">🎭</div>
+          <h3>Event Traffic Planning</h3>
+          <p>Seamlessly find parking for any event, from cricket matches to concerts.</p>
+        </div>
+        <div class="card feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Instant Booking</h3>
+          <p>Reserve your spot in seconds. QR pass sent instantly to your phone.</p>
+        </div>
+      </div>
+
+      <!-- Upcoming Events Preview -->
+      <div class="section-title">🎭 Upcoming Events</div>
+      <div class="events-grid mb-16" id="explore-events"></div>
+
+      <!-- Featured Parking Lots -->
+      <div class="section-title">🅿️ Featured Parking Lots</div>
+      <div class="lots-grid" id="explore-lots"></div>
+
+      <!-- CTA -->
+      <div class="card" style="text-align:center;padding:40px;border-color:rgba(245,158,11,0.3);background:rgba(245,158,11,0.05)">
+        <h2 style="margin-bottom:12px">Join free — it takes 30 seconds</h2>
+        <p class="text-muted mb-16">Book parking, track events, manage your lot — all in one dashboard.</p>
+        <a href="register.html" class="btn btn-warning btn-lg">📝 Register Now</a>
+      </div>
+    </div><!-- /page-explore -->
+
+    <!-- ════ PAGE: FIND PARKING ════ -->
+    <div class="page" id="page-find-parking">
+      <!-- Search bar -->
+      <div class="card mb-16">
+        <div class="flex-gap-8" style="align-items:center">
+          <div class="search-bar" style="flex:1">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-muted);flex-shrink:0" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="gst-search" type="text" placeholder="Enter a location to find nearby parking..." onkeydown="if(event.key==='Enter')guestSearch()"/>
+          </div>
+          <button class="btn btn-primary" onclick="guestSearch()">🔍 Search</button>
+        </div>
+      </div>
+
+      <!-- Map -->
+      <div class="map-container" style="height:420px;margin-bottom:20px">
+        <div id="gst-map" style="height:100%;width:100%"></div>
+      </div>
+
+      <!-- Results -->
+      <div id="gst-results"></div>
+    </div><!-- /page-find-parking -->
+
+    <!-- ════ PAGE: EVENTS ════ -->
+    <div class="page" id="page-events">
+      <div class="section-title">🎭 Upcoming Events</div>
+      <div class="events-grid" id="all-events"></div>
+    </div><!-- /page-events -->
+
+    <!-- ════ PAGE: HOW IT WORKS ════ -->
+    <div class="page" id="page-how-it-works">
+      <div style="display:flex;flex-direction:column;gap:24px;max-width:800px;margin:0 auto">
+
+        <!-- Step 1 -->
+        <div class="card flex-gap-16" style="align-items:flex-start">
+          <div class="step-number" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark))">1</div>
+          <div>
+            <h3 style="margin-bottom:8px">📝 Create Your Account</h3>
+            <p class="text-muted">Register in 30 seconds as a Customer, Event Organiser, or Parking Lot Owner. Each role gets its own powerful dashboard.</p>
+            <div class="flex-gap-8 mt-12" style="flex-wrap:wrap">
+              <span class="chip">🚗 Customer</span>
+              <span class="chip">🎭 Organiser</span>
+              <span class="chip">🅿️ Lot Owner</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="card flex-gap-16" style="align-items:flex-start">
+          <div class="step-number" style="background:linear-gradient(135deg,var(--teal),var(--teal-dark))">2</div>
+          <div>
+            <h3 style="margin-bottom:8px">🗺️ Find &amp; Book Parking</h3>
+            <p class="text-muted">Customers can search for nearby parking lots on a live map, check real-time availability, and book instantly. A QR pass is generated for gate entry.</p>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="card flex-gap-16" style="align-items:flex-start">
+          <div class="step-number" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">3</div>
+          <div>
+            <h3 style="margin-bottom:8px">🎭 Create &amp; Manage Events</h3>
+            <p class="text-muted">Event organisers create events, define expected visitor counts, and receive parking lot applications from owners. Accept or decline with one click. Monitor gate queues and emergency lanes.</p>
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="card flex-gap-16" style="align-items:flex-start">
+          <div class="step-number" style="background:linear-gradient(135deg,var(--warning),#d97706)">4</div>
+          <div>
+            <h3 style="margin-bottom:8px">🅿️ List Your Parking Lot</h3>
+            <p class="text-muted">Parking lot owners register their lots, set pricing, and apply to events. Track occupancy, manage bookings, and view earnings — all from one dashboard.</p>
+          </div>
+        </div>
+
+        <!-- Step 5 -->
+        <div class="card flex-gap-16" style="align-items:flex-start">
+          <div class="step-number" style="background:linear-gradient(135deg,var(--success),#059669)">5</div>
+          <div>
+            <h3 style="margin-bottom:8px">⚡ Real-Time Tracking &amp; QR Passes</h3>
+            <p class="text-muted">QR codes for entry, live occupancy updates, smart traffic alerts, and emergency lane notifications. EVETRAMASY keeps everyone moving smoothly.</p>
+          </div>
+        </div>
+
+        <!-- Final CTA -->
+        <div class="card" style="text-align:center;padding:32px;border-color:rgba(99,102,241,0.3)">
+          <h2 style="margin-bottom:12px">Ready to get started?</h2>
+          <p class="text-muted mb-16">Join thousands of users already using EVETRAMASY.</p>
+          <a href="register.html" class="btn btn-primary btn-lg">🚀 Register Free</a>
+        </div>
+      </div>
+    </div><!-- /page-how-it-works -->
+
+  </div><!-- /main-content -->
+</div><!-- /dashboard-layout -->
+
+<!-- Modal: Guest Event Detail -->
+<div class="modal-overlay" id="modal-guest-event">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-header">
+      <h3 id="guest-modal-ev-name">Event Details</h3>
+      <button class="modal-close" onclick="closeGuestModal()">✕</button>
+    </div>
+    <div id="guest-modal-ev-content" style="padding:14px 0;"></div>
+    <div class="modal-footer" style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeGuestModal()">Close</button>
+      <a href="register.html" class="btn btn-primary">Register to Book</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Bootstrap ────────────────────────────────────────────────
+  DB.seed();
+
+  // ── Toast ────────────────────────────────────────────────────
+  function showToast(msg, type = 'info') {
+    const d = document.createElement('div');
+    d.className = `toast toast-${type}`;
+    d.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span><span>${msg}</span>`;
+    document.getElementById('toast-container').appendChild(d);
+    setTimeout(() => d.remove(), 4000);
+  }
+
+  // ── Page routing ─────────────────────────────────────────────
+  const pageTitles = {
+    'explore':      '🏠 Explore EVETRAMASY',
+    'find-parking': '🗺️ Find Parking',
+    'events':       '🎭 Upcoming Events',
+    'how-it-works': 'ℹ️ How It Works',
+  };
+
+  let mapInitialised = false;
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item[data-page]').forEach(n => n.classList.remove('active'));
+
+    const page = document.getElementById('page-' + id);
+    if (page) page.classList.add('active');
+
+    const navItem = document.querySelector(`.nav-item[data-page="${id}"]`);
+    if (navItem) navItem.classList.add('active');
+
+    document.getElementById('topbar-title').textContent = pageTitles[id] || '';
+
+    if (id === 'find-parking' && !mapInitialised) {
+      initGuestMap();
+    }
+  }
+
+  // Intercept sidebar nav clicks
+  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      showPage(item.getAttribute('data-page'));
+    });
+  });
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function formatDate(dt) {
+    if (!dt) return 'TBA';
+    try {
+      return new Date(dt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    } catch { return dt; }
+  }
+
+  function typeBadge(type, color) {
+    return `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${color || 'rgba(99,102,241,0.15)'};color:#fff;border:1px solid rgba(255,255,255,0.1)">${type || 'General'}</span>`;
+  }
+
+  function starRating(r) {
+    const stars = Math.round(r || 0);
+    return '⭐'.repeat(stars) + '☆'.repeat(Math.max(0, 5 - stars));
+  }
+
+  // ── Explore: Events preview ───────────────────────────────────
+  function renderExploreEvents() {
+    const container = document.getElementById('explore-events');
+    const events = (DB.Events && DB.Events.upcoming ? DB.Events.upcoming() : []).slice(0, 3);
+    if (!events.length) {
+      container.innerHTML = '<p class="text-muted">No upcoming events found.</p>';
+      return;
+    }
+    container.innerHTML = events.map(ev => `
+      <div class="card event-card">
+        <div class="event-name">${ev.name || 'Unnamed Event'}</div>
+        ${typeBadge(ev.type, 'rgba(139,92,246,0.5)')}
+        <div class="event-meta" style="margin-top:12px">
+          <div class="event-meta-row">🏟️ <span>${ev.venue || '—'}</span></div>
+          <div class="event-meta-row">📍 <span>${ev.address || '—'}</span></div>
+          <div class="event-meta-row">📅 <span>${formatDate(ev.date || ev.startDate)}</span></div>
+          <div class="event-meta-row">👥 <span>${(ev.expectedVisitors || 0).toLocaleString()} expected visitors</span></div>
+        </div>
+        <p class="lock-notice">🔒 Sign in to book parking for this event</p>
+      </div>
+    `).join('');
+  }
+
+  // ── Explore: Lots preview ─────────────────────────────────────
+  function renderExploreLots() {
+    const container = document.getElementById('explore-lots');
+    const lots = (DB.ParkingLots && DB.ParkingLots.active ? DB.ParkingLots.active() : []).slice(0, 3);
+    if (!lots.length) {
+      container.innerHTML = '<p class="text-muted">No parking lots available.</p>';
+      return;
+    }
+    container.innerHTML = lots.map(lot => `
+      <div class="card lot-card">
+        <div class="lot-card-header">
+          <div class="lot-name">${lot.name || 'Unnamed Lot'}</div>
+          ${typeBadge(lot.type, 'rgba(16,185,129,0.4)')}
+        </div>
+        <div class="lot-meta">
+          📍 ${lot.address || '—'}<br>
+          🚗 ${lot.totalSpaces || lot.spaces || '—'} spaces<br>
+          💰 $${lot.pricePerHour || lot.price || '—'}/hr<br>
+          ${lot.rating ? `${starRating(lot.rating)} (${lot.rating})` : ''}
+        </div>
+        <p class="lock-notice" style="margin-top:8px">🔒 Sign in to book a space</p>
+      </div>
+    `).join('');
+  }
+
+  // ── Events page: All events ───────────────────────────────────
+  function renderAllEvents() {
+    const container = document.getElementById('all-events');
+    const events = DB.Events && DB.Events.upcoming ? DB.Events.upcoming() : [];
+    if (!events.length) {
+      container.innerHTML = '<p class="text-muted">No upcoming events at this time.</p>';
+      return;
+    }
+    container.innerHTML = events.map(ev => `
+      <div class="card event-card" style="position:relative">
+        <div class="event-name">${ev.name || 'Unnamed Event'}</div>
+        ${typeBadge(ev.type, 'rgba(139,92,246,0.5)')}
+        <div class="event-meta" style="margin-top:14px">
+          <div class="event-meta-row">🏟️ <strong>${ev.venue || '—'}</strong></div>
+          <div class="event-meta-row">📍 ${ev.address || '—'}</div>
+          <div class="event-meta-row">📅 ${formatDate(ev.date || ev.startDate)}</div>
+          <div class="event-meta-row">👥 ${(ev.expectedVisitors || 0).toLocaleString()} expected visitors</div>
+          <div class="event-meta-row">🅿️ ${(ev.approvedParkingLots || []).length} parking lots approved</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-ghost btn-sm" onclick="viewGuestEvent('${ev.id}')">👁️ View Details</button>
+          <button class="btn btn-primary btn-sm" style="flex:1;" onclick="showRestricted(this)">🅿️ Book Parking</button>
+        </div>
+        <div class="restricted-overlay" style="display:none">
+          <div style="font-size:36px">🔒</div>
+          <h3>Members Only</h3>
+          <p>Sign up to book parking for this event.</p>
+          <div class="flex-gap-8" style="flex-wrap:wrap;justify-content:center">
+            <a href="register.html" class="btn btn-primary">Register Free</a>
+            <a href="index.html" class="btn btn-ghost">Sign In</a>
+          </div>
+          <button class="btn btn-ghost btn-sm mt-8" onclick="hideRestricted(this)">✕ Close</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function viewGuestEvent(eventId) {
+    const ev = DB.Events.find(eventId);
+    if (!ev) { showToast('Event not found.', 'error'); return; }
+    document.getElementById('guest-modal-ev-name').textContent = ev.name;
+    document.getElementById('guest-modal-ev-content').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:14px;margin-bottom:14px;">
+        <div><span class="text-muted">Type:</span> <b>${ev.eventType || ev.type || 'Event'}</b></div>
+        <div><span class="text-muted">Venue:</span> <b>${ev.venue || '—'}</b></div>
+        <div><span class="text-muted">Date:</span> <b>${formatDate(ev.date || ev.startDate)}</b></div>
+        <div><span class="text-muted">Time:</span> <b>${ev.startTime || ''} – ${ev.endTime || ''}</b></div>
+        <div><span class="text-muted">Expected:</span> <b>${(ev.expectedVisitors || 0).toLocaleString()} visitors</b></div>
+        <div><span class="text-muted">Address:</span> <b>${ev.address || '—'}</b></div>
+      </div>
+      ${ev.description ? `<p class="text-muted" style="font-size:13px;line-height:1.5;background:rgba(255,255,255,0.03);padding:10px;border-radius:8px;border:1px solid var(--border);margin-bottom:12px;">${ev.description}</p>` : ''}
+      <div style="font-size:13px;color:var(--text-muted);">
+        🅿️ <b>${(ev.approvedParkingLots || []).length}</b> parking lot(s) approved for this event. Register or sign in to book your spot!
+      </div>
+    `;
+    const m = document.getElementById('modal-guest-event');
+    m.classList.add('open');
+  }
+
+  function closeGuestModal() {
+    const m = document.getElementById('modal-guest-event');
+    m.classList.remove('open');
+  }
+
+  function showRestricted(btn) {
+    btn.nextElementSibling.style.display = 'flex';
+  }
+
+  function hideRestricted(btn) {
+    btn.closest('.restricted-overlay').style.display = 'none';
+  }
+
+  // ── Map ───────────────────────────────────────────────────────
+  let guestMap = null;
+
+  function initGuestMap() {
+    mapInitialised = true;
+
+    // Default centre (fallback if MapEngine not available)
+    const defaultLat = -25.7479, defaultLng = 28.2293; // Pretoria as example
+
+    try {
+      if (typeof MapEngine !== 'undefined' && MapEngine.init) {
+        guestMap = MapEngine.init('gst-map', defaultLat, defaultLng, 13);
+      } else {
+        guestMap = L.map('gst-map').setView([defaultLat, defaultLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19
+        }).addTo(guestMap);
+      }
+
+      // Plot DB active lots
+      const lots = DB.ParkingLots && DB.ParkingLots.active ? DB.ParkingLots.active() : [];
+      lots.forEach(lot => {
+        if (lot.lat && lot.lng) {
+          const marker = L.marker([lot.lat, lot.lng]).addTo(guestMap);
+          marker.bindPopup(`<b>${lot.name}</b><br>${lot.address || ''}<br>💰 $${lot.pricePerHour || '—'}/hr`);
+        }
+      });
+
+      if (lots.length > 0 && lots[0].lat) {
+        guestMap.setView([lots[0].lat, lots[0].lng], 13);
+      }
+
+    } catch (err) {
+      console.error('Map init error:', err);
+      document.getElementById('gst-map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:14px">🗺️ Map unavailable in preview mode</div>';
+    }
+  }
+
+  // ── Guest Search ─────────────────────────────────────────────
+  async function guestSearch() {
+    const query = document.getElementById('gst-search').value.trim();
+    if (!query) {
+      showToast('Please enter a location to search.', 'error');
+      return;
+    }
+
+    const resultsEl = document.getElementById('gst-results');
+    resultsEl.innerHTML = '<p class="text-muted">🔍 Searching...</p>';
+
+    try {
+      let lat, lng;
+
+      // Try MapEngine.geocode first
+      if (typeof MapEngine !== 'undefined' && MapEngine.geocode) {
+        const coords = await MapEngine.geocode(query);
+        lat = coords.lat;
+        lng = coords.lng;
+      } else {
+        // Fallback: Nominatim
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+        const data = await resp.json();
+        if (!data.length) throw new Error('Location not found');
+        lat = parseFloat(data[0].lat);
+        lng = parseFloat(data[0].lon);
+      }
+
+      if (guestMap) guestMap.setView([lat, lng], 14);
+
+      // Find nearby OSM lots
+      let osmLots = [];
+      if (typeof MapEngine !== 'undefined' && MapEngine.findNearbyParking) {
+        osmLots = await MapEngine.findNearbyParking(lat, lng);
+      }
+
+      // Filter DB lots within ~5km (approx 0.045 degrees)
+      const dbLots = (DB.ParkingLots && DB.ParkingLots.active ? DB.ParkingLots.active() : []).filter(lot => {
+        if (!lot.lat || !lot.lng) return false;
+        const dLat = Math.abs(lot.lat - lat);
+        const dLng = Math.abs(lot.lng - lng);
+        return dLat < 0.045 && dLng < 0.045;
+      });
+
+      // Plot all on map
+      if (typeof MapEngine !== 'undefined' && MapEngine.plotParkingLots && guestMap) {
+        MapEngine.plotParkingLots(guestMap, [...osmLots, ...dbLots]);
+      } else if (guestMap) {
+        [...osmLots, ...dbLots].forEach(lot => {
+          const m = L.marker([lot.lat || lat, lot.lng || lng]).addTo(guestMap);
+          m.bindPopup(`<b>${lot.name || 'Parking Lot'}</b>`);
+        });
+      }
+
+      const allResults = [...dbLots, ...osmLots];
+
+      if (!allResults.length) {
+        resultsEl.innerHTML = '<p class="text-muted">No parking lots found near this location. Try a different area.</p>';
+        return;
+      }
+
+      resultsEl.innerHTML = `
+        <div class="section-title" style="font-size:16px">🅿️ ${allResults.length} Parking Lots Found</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${allResults.map((lot, i) => `
+            <div class="result-card">
+              <div class="result-icon">🅿️</div>
+              <div class="result-info">
+                <div class="result-name">${lot.name || 'Parking Lot'}</div>
+                <div class="result-addr">${lot.address || lot.type || 'Nearby parking'}</div>
+                ${lot.totalSpaces || lot.spaces ? `<div class="result-addr">🚗 ${lot.totalSpaces || lot.spaces} spaces</div>` : ''}
+                ${lot.pricePerHour ? `<div class="result-addr">💰 $${lot.pricePerHour}/hr</div>` : ''}
+                <button class="btn btn-primary btn-sm mt-8" onclick="toggleLocked(this)">🔒 Book</button>
+                <div class="locked-inline" id="locked-${i}">
+                  🔒 Create a free account to book this parking spot.<br>
+                  <a href="register.html">Register Free</a> · <a href="index.html">Sign In</a>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
+      lucide.createIcons();
+
+    } catch (err) {
+      console.error(err);
+      showToast('Could not find that location. Try a different search term.', 'error');
+      resultsEl.innerHTML = '<p class="text-muted">Location not found. Please try a different search.</p>';
+    }
+  }
+
+  function toggleLocked(btn) {
+    const locked = btn.nextElementSibling;
+    locked.style.display = locked.style.display === 'block' ? 'none' : 'block';
+  }
+
+  // ── Init ─────────────────────────────────────────────────────
+  renderExploreEvents();
+  renderExploreLots();
+  renderAllEvents();
+  showPage('explore');
+  lucide.createIcons();
+</script>
+</body>
+</html>

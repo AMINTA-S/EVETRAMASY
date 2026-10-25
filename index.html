@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EVETRAMASY — Event Traffic Management</title>
+<link rel="stylesheet" href="css/main.css"/>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<style>
+/* Landing-specific styles */
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  position: relative; overflow: hidden;
+  background: var(--bg);
+}
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 15% 20%, rgba(99,102,241,0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 85% 80%, rgba(20,184,166,0.15) 0%, transparent 60%);
+}
+.hero-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 64px; align-items: center;
+  max-width: 1200px; margin: 0 auto;
+  padding: 80px 40px; position: relative; z-index: 1;
+  width: 100%;
+}
+.hero-left {}
+.hero-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; padding: 6px 14px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; margin-bottom: 20px;
+}
+.hero-title {
+  font-family: 'Poppins', sans-serif;
+  font-size: 56px; font-weight: 900;
+  line-height: 1.05; margin-bottom: 20px;
+}
+.hero-title span {
+  background: linear-gradient(135deg, var(--primary), var(--teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-desc { font-size: 17px; color: var(--text-muted); line-height: 1.7; margin-bottom: 36px; }
+.hero-actions { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 48px; }
+.hero-stats { display: flex; gap: 32px; }
+.hero-stat {}
+.hero-stat-val { font-size: 28px; font-weight: 800; }
+.hero-stat-lbl { font-size: 12px; color: var(--text-muted); }
+
+/* Login form panel */
+.login-panel {
+  background: rgba(15,15,34,0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 36px;
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Features section */
+.features { padding: 80px 40px; max-width: 1200px; margin: 0 auto; }
+.features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; margin-top: 48px; }
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px; text-align: center;
+  transition: var(--transition);
+}
+.feature-card:hover { border-color: var(--primary-glow); transform: translateY(-4px); box-shadow: var(--shadow); }
+.feature-icon { font-size: 40px; margin-bottom: 16px; }
+.feature-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.feature-desc  { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+/* Footer */
+footer {
+  text-align: center; padding: 32px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim); font-size: 13px;
+}
+
+/* Nav */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  padding: 16px 40px;
+  display: flex; align-items: center;
+  background: rgba(11,11,24,0.85);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand {
+  font-family: 'Poppins', sans-serif; font-weight: 900; font-size: 22px;
+  background: linear-gradient(135deg, var(--primary), var(--teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  flex: 1;
+}
+.nav-links { display: flex; gap: 24px; align-items: center; }
+.nav-links a { color: var(--text-muted); font-size: 14px; font-weight: 500; text-decoration: none; }
+.nav-links a:hover { color: var(--text); }
+
+/* Tabs on login form */
+.login-tabs { display: flex; background: var(--bg-card); border-radius: var(--radius); padding: 4px; gap: 4px; margin-bottom: 24px; }
+.login-tab { flex: 1; padding: 8px; border-radius: 8px; border: none; background: none; color: var(--text-muted); font-weight: 600; font-size: 13px; cursor: pointer; font-family: 'Inter',sans-serif; transition: var(--transition); }
+.login-tab.active { background: var(--primary); color: #fff; }
+
+/* Guest quick links */
+.guest-roles { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.guest-role-btn {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer; text-decoration: none; color: var(--text);
+  transition: var(--transition);
+  font-family: 'Inter', sans-serif;
+}
+.guest-role-btn:hover { border-color: var(--primary); text-decoration: none; }
+.guest-role-btn .grb-icon { font-size: 28px; }
+.guest-role-btn .grb-text b { display: block; font-size: 14px; font-weight: 700; }
+.guest-role-btn .grb-text span { font-size: 12px; color: var(--text-muted); }
+.grb-arrow { margin-left: auto; color: var(--text-dim); }
+
+@media (max-width: 900px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .hero-title { font-size: 36px; }
+  .features-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ─────────────────────────────────────────── -->
+<nav>
+  <div class="nav-brand">EVETRAMASY</div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#login-section">Login</a>
+    <a href="guest.html" class="btn btn-ghost btn-sm">Guest Mode</a>
+  </div>
+</nav>
+
+<!-- ── Hero Section ───────────────────────────────────────── -->
+<section class="hero" style="padding-top:72px">
+  <div class="hero-grid">
+    <!-- Left: copy -->
+    <div class="hero-left">
+      <div class="hero-tag">🚦 Smart Event Traffic System</div>
+      <h1 class="hero-title">
+        Traffic &amp; Parking,<br>
+        <span>Reimagined</span>
+      </h1>
+      <p class="hero-desc">
+        EVETRAMASY connects event organizers, parking lot owners, and visitors
+        on one intelligent platform. Find real parking, navigate smart routes,
+        and manage events — all in real time.
+      </p>
+      <div class="hero-actions">
+        <a href="#login-section" class="btn btn-primary btn-lg">Get Started</a>
+        <a href="guest.html"     class="btn btn-ghost  btn-lg">Explore as Guest</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="hero-stat-val text-primary">3</div><div class="hero-stat-lbl">User Roles</div></div>
+        <div class="hero-stat"><div class="hero-stat-val text-teal">Real</div><div class="hero-stat-lbl">Map Data</div></div>
+        <div class="hero-stat"><div class="hero-stat-val" style="color:var(--warning)">Live</div><div class="hero-stat-lbl">Parking Status</div></div>
+      </div>
+    </div>
+
+    <!-- Right: login panel -->
+    <div class="login-panel" id="login-section">
+      <!-- Tabs: Login / Roles -->
+      <div class="login-tabs">
+        <button class="login-tab active" onclick="showPanel('login')">Sign In</button>
+        <button class="login-tab"        onclick="showPanel('register')">Register</button>
+        <button class="login-tab"        onclick="showPanel('guest')">Guest</button>
+      </div>
+
+      <!-- ── Login Form ──────────────────────────── -->
+      <div id="panel-login">
+        <h2 class="auth-title">Welcome back 👋</h2>
+        <p class="auth-subtitle" style="margin-bottom:20px">Sign in to your account</p>
+        <div id="login-error" class="alert alert-error" style="display:none;margin-bottom:16px"></div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <div class="input-group">
+              <i data-lucide="user" class="input-icon"></i>
+              <input type="text" id="login-username" class="form-control" placeholder="Enter your username" autocomplete="username"/>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="input-group">
+              <i data-lucide="lock" class="input-icon"></i>
+              <input type="password" id="login-password" class="form-control" placeholder="Enter your password" autocomplete="current-password"/>
+              <span class="input-suffix" onclick="togglePwd('login-password',this)">
+                <i data-lucide="eye"></i>
+              </span>
+            </div>
+          </div>
+
+          <div style="text-align:right;margin-top:-8px">
+            <a href="forgot-password.html" style="font-size:13px">Forgot password?</a>
+          </div>
+
+          <button class="btn btn-primary btn-full btn-lg" onclick="doLogin()">
+            <i data-lucide="log-in"></i> Sign In
+          </button>
+
+          <div class="auth-divider">or</div>
+
+          <p style="font-size:13px;text-align:center;color:var(--text-muted)">
+            Don't have an account?
+            <a href="#" onclick="showPanel('register')">Create one free</a>
+          </p>
+
+          <!-- Demo accounts hint -->
+          <details style="margin-top:8px">
+            <summary style="font-size:12px;color:var(--text-dim);cursor:pointer">Demo accounts</summary>
+            <div style="margin-top:10px;font-size:12px;color:var(--text-muted);display:flex;flex-direction:column;gap:6px">
+              <div>🧑 Customer: <b>alice</b> / alice123</div>
+              <div>🎭 Organiser: <b>bob</b> / bob123</div>
+              <div>🅿️ Parking Owner: <b>carol</b> / carol123</div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- ── Register panel (link to page) ────────── -->
+      <div id="panel-register" style="display:none">
+        <h2 class="auth-title">Create account 🚀</h2>
+        <p class="auth-subtitle" style="margin-bottom:20px">Choose your role to get started</p>
+        <div class="guest-roles">
+          <a href="register.html?role=customer" class="guest-role-btn">
+            <div class="grb-icon">🧑</div>
+            <div class="grb-text">
+              <b>Customer</b>
+              <span>Find &amp; book parking, plan routes to events</span>
+            </div>
+            <div class="grb-arrow"><i data-lucide="chevron-right"></i></div>
+          </a>
+          <a href="register.html?role=organiser" class="guest-role-btn">
+            <div class="grb-icon">🎭</div>
+            <div class="grb-text">
+              <b>Event Organiser</b>
+              <span>Create events, manage parking &amp; traffic</span>
+            </div>
+            <div class="grb-arrow"><i data-lucide="chevron-right"></i></div>
+          </a>
+          <a href="register.html?role=parking_owner" class="guest-role-btn">
+            <div class="grb-icon">🅿️</div>
+            <div class="grb-text">
+              <b>Parking Lot Owner</b>
+              <span>List your lot, accept bookings &amp; event partnerships</span>
+            </div>
+            <div class="grb-arrow"><i data-lucide="chevron-right"></i></div>
+          </a>
+        </div>
+      </div>
+
+      <!-- ── Guest panel ────────────────────────────── -->
+      <div id="panel-guest" style="display:none">
+        <h2 class="auth-title">Guest Mode 👀</h2>
+        <p class="auth-subtitle" style="margin-bottom:20px">Browse without signing in. Some features are locked.</p>
+        <a href="guest.html" class="btn btn-ghost btn-full btn-lg" style="margin-bottom:12px">
+          <i data-lucide="compass"></i> Explore as Guest
+        </a>
+        <div class="alert alert-warning" style="font-size:13px">
+          ⚠️ Reservations and bookings require a free account.
+        </div>
+        <div style="margin-top:16px;font-size:13px;text-align:center;color:var(--text-muted)">
+          Ready to register? <a href="#" onclick="showPanel('register')">Sign up free</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ───────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div style="text-align:center;margin-bottom:16px">
+    <span class="badge badge-primary">Why EVETRAMASY</span>
+  </div>
+  <h2 style="text-align:center;font-size:36px;font-weight:800">Everything you need,<br>in one platform</h2>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🗺️</div>
+      <div class="feature-title">Real Map Integration</div>
+      <div class="feature-desc">Live OpenStreetMap with real parking locations fetched from OSM data. Not simulated — real coordinates.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🤝</div>
+      <div class="feature-title">Parking Applications</div>
+      <div class="feature-desc">Lot owners apply to events. Organizers accept or decline. Partnerships made simple.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🎟️</div>
+      <div class="feature-title">Instant Booking</div>
+      <div class="feature-desc">Book parking for events or daily use. Instant QR pass generated and ready to show at entry.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚦</div>
+      <div class="feature-title">Traffic Forecasting</div>
+      <div class="feature-desc">Arrival curves, peak predictions, and smart gate routing — before congestion builds up.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Organizer Analytics</div>
+      <div class="feature-desc">Real-time visitor counts, parking occupancy, CO₂ savings, and revenue dashboards.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <div class="feature-title">Smart Alerts</div>
+      <div class="feature-desc">Auto alerts when lots fill, gates clog, or emergencies arise — sent across all roles.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────── -->
+<footer>
+  <div style="font-size:20px;font-weight:900;font-family:'Poppins',sans-serif;margin-bottom:8px;
+    background:linear-gradient(135deg,var(--primary),var(--teal));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+    EVETRAMASY
+  </div>
+  <p>Event Traffic Management System &copy; 2024. Built with OpenStreetMap, Leaflet &amp; OSRM.</p>
+</footer>
+
+<!-- ── Toast container ────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── Scripts ────────────────────────────────────────────── -->
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  lucide.createIcons();
+
+  function showPanel(name) {
+    ['login','register','guest'].forEach(p => {
+      document.getElementById(`panel-${p}`).style.display = 'none';
+      document.querySelectorAll('.login-tab')[['login','register','guest'].indexOf(p)].classList.remove('active');
+    });
+    document.getElementById(`panel-${name}`).style.display = 'block';
+    document.querySelectorAll('.login-tab')[['login','register','guest'].indexOf(name)].classList.add('active');
+    lucide.createIcons();
+  }
+
+  function togglePwd(id, el) {
+    const inp = document.getElementById(id);
+    const isText = inp.type === 'text';
+    inp.type = isText ? 'password' : 'text';
+    el.innerHTML = isText ? '<i data-lucide="eye"></i>' : '<i data-lucide="eye-off"></i>';
+    lucide.createIcons();
+  }
+
+  function showToast(msg, type = 'info') {
+    const tc = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.innerHTML = `<span>${msg}</span>`;
+    tc.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+
+    if (!username || !password) {
+      errEl.textContent = 'Please fill in all fields.';
+      errEl.style.display = 'flex';
+      return;
+    }
+
+    const result = Auth.login(username, password);
+    if (result.error) {
+      errEl.textContent = result.error;
+      errEl.style.display = 'flex';
+      return;
+    }
+
+    errEl.style.display = 'none';
+    showToast(`Welcome back, ${result.user.name}! 🎉`, 'success');
+    setTimeout(() => Auth.redirectByRole(result.user.role), 800);
+  }
+
+  // Enter key on login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('panel-login').style.display !== 'none') doLogin();
+  });
+
+  // Redirect if already logged in
+  if (Auth.isLoggedIn()) Auth.redirectByRole(Auth.current().role);
+</script>
+</body>
+</html>

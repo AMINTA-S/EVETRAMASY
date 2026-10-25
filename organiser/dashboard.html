@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Organiser Dashboard — EVETRAMASY</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="../css/main.css"/>
+  <style>
+    :root { --role-organiser: #6366f1; }
+
+    /* ── Sidebar accent ── */
+    .sidebar { border-right: 1px solid rgba(99,102,241,0.25); }
+    .sidebar .brand-dot { background: var(--role-organiser); }
+    .nav-item.active, .nav-item:hover { color: var(--role-organiser); background: rgba(99,102,241,0.12); }
+    .nav-item.active::before { background: var(--role-organiser); }
+    .sidebar-footer .avatar-organiser { background: linear-gradient(135deg,#6366f1,#818cf8); }
+
+    /* ── Badge on nav ── */
+    .nav-badge {
+      margin-left: auto; background: var(--role-organiser);
+      color: #fff; font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 99px; min-width: 20px; text-align: center;
+    }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed; top: 20px; right: 20px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .toast {
+      padding: 12px 20px; border-radius: 10px; color: #fff;
+      font-size: 14px; font-weight: 500; backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: slideIn .3s ease;
+      max-width: 320px;
+    }
+    .toast.info    { background: rgba(99,102,241,0.9); }
+    .toast.success { background: rgba(16,185,129,0.9); }
+    .toast.warning { background: rgba(245,158,11,0.9); }
+    .toast.error   { background: rgba(239,68,68,0.9);  }
+    @keyframes slideIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:none; } }
+
+    /* ── Maps ── */
+    #create-map  { height: 300px; border-radius: 12px; margin-top: 10px; }
+    #traffic-map { height: 500px; border-radius: 12px; }
+
+    /* ── Event detail modal ── */
+    .modal-overlay.open { opacity: 1 !important; pointer-events: all !important; display: flex !important; }
+    .modal-wide .modal, .modal-wide .modal-box {
+      width: min(740px, 95vw);
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+      position: relative;
+      z-index: 1001;
+    }
+    .modal-tabs { display: flex; gap: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 18px; }
+    .modal-tab {
+      padding: 8px 18px; border-radius: 8px 8px 0 0; cursor: pointer;
+      font-size: 14px; font-weight: 500; color: var(--text-muted); transition: all .2s;
+    }
+    .modal-tab.active { background: rgba(99,102,241,0.2); color: var(--role-organiser); }
+    .modal-tab-content { display: none; }
+    .modal-tab-content.active { display: block; }
+
+    /* ── Emergency banner ── */
+    .emergency-banner {
+      background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.5);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+      color: #f87171; font-weight: 600; display: flex; align-items: center; gap: 10px;
+    }
+
+    /* ── Occupancy bar ── */
+    .occ-bar { background: rgba(255,255,255,0.08); border-radius: 4px; height: 8px; overflow:hidden; margin-top: 4px; }
+    .occ-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+
+    /* ── Sub-tabs for application status ── */
+    .sub-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .sub-tab {
+      padding: 5px 14px; border-radius: 20px; cursor: pointer;
+      font-size: 13px; border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text-muted); transition: all .2s;
+    }
+    .sub-tab.active { background: var(--role-organiser); color: #fff; border-color: var(--role-organiser); }
+
+    /* ── Traffic stats table ── */
+    .traffic-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .traffic-table th, .traffic-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .traffic-table th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+
+    /* ── Gate list ── */
+    .gate-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .gate-queue { background: rgba(99,102,241,0.15); color: var(--role-organiser); padding: 2px 10px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+
+    /* ── Toggle switch ── */
+    .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+    .toggle { position: relative; width: 44px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: rgba(255,255,255,0.15);
+      border-radius: 24px; cursor: pointer; transition: .3s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; width: 18px; height: 18px;
+      background: #fff; border-radius: 50%; bottom: 3px; left: 3px; transition: .3s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--role-organiser); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* ── Analytics stats row ── */
+    .analytics-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+    .analytics-stat { flex: 1; min-width: 120px; background: rgba(255,255,255,0.04); border-radius: 10px; padding: 14px; }
+    .analytics-stat .val { font-size: 22px; font-weight: 700; color: var(--role-organiser); }
+    .analytics-stat .lbl { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Notification item ── */
+    .notif-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+    .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--role-organiser); margin-top: 5px; flex-shrink: 0; }
+    .notif-dot.read { background: rgba(255,255,255,0.15); }
+    .notif-msg  { font-size: 14px; }
+    .notif-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Profile form ── */
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media(max-width:600px) { .profile-grid { grid-template-columns: 1fr; } }
+
+    /* ── Chart canvas ── */
+    #arrival-chart { max-height: 260px; }
+  </style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════════╗ -->
+<!-- ║               TOAST CONTAINER               ║ -->
+<!-- ╚══════════════════════════════════════════════╝ -->
+<div id="toast-container"></div>
+
+<!-- ╔══════════════════════════════════════════════╗ -->
+<!-- ║            EVENT DETAIL MODAL               ║ -->
+<!-- ╚══════════════════════════════════════════════╝ -->
+<div id="event-modal" class="modal-overlay modal-wide" style="display:none" onclick="if(event.target===this)closeEventModal()">
+  <div class="modal modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h2 id="modal-event-name" style="font-size:20px;font-weight:700"></h2>
+      <button class="modal-close" onclick="closeEventModal()">✕</button>
+    </div>
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <div class="modal-tab active" onclick="switchModalTab('details',this)">Details</div>
+      <div class="modal-tab" onclick="switchModalTab('lots',this)">Parking Lots</div>
+      <div class="modal-tab" onclick="switchModalTab('applications',this)">Applications</div>
+      <div class="modal-tab" onclick="switchModalTab('analytics',this)">Analytics</div>
+    </div>
+
+    <!-- Details Tab -->
+    <div id="mtab-details" class="modal-tab-content active">
+      <div id="modal-details-content"></div>
+    </div>
+
+    <!-- Lots Tab -->
+    <div id="mtab-lots" class="modal-tab-content">
+      <div id="modal-lots-content"></div>
+      <div id="lot-map" style="height:240px;border-radius:12px;margin-top:14px"></div>
+    </div>
+
+    <!-- Applications Tab -->
+    <div id="mtab-applications" class="modal-tab-content">
+      <div class="sub-tabs" id="app-sub-tabs">
+        <div class="sub-tab active" onclick="filterAppTab('pending',this)">Pending</div>
+        <div class="sub-tab" onclick="filterAppTab('accepted',this)">Accepted</div>
+        <div class="sub-tab" onclick="filterAppTab('declined',this)">Declined</div>
+      </div>
+      <div id="modal-apps-content"></div>
+    </div>
+
+    <!-- Analytics Tab -->
+    <div id="mtab-analytics" class="modal-tab-content">
+      <div class="analytics-row" id="analytics-stats-row"></div>
+      <canvas id="arrival-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════════╗ -->
+<!-- ║               MAIN LAYOUT                   ║ -->
+<!-- ╚══════════════════════════════════════════════╝ -->
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">EVETRAMASY</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="showPage('overview')" id="nav-overview">
+        <i data-lucide="home"></i> Overview
+      </div>
+      <div class="nav-item" onclick="showPage('create-event')" id="nav-create-event">
+        <i data-lucide="plus-circle"></i> Create Event
+      </div>
+      <div class="nav-item" onclick="showPage('my-events')" id="nav-my-events">
+        <i data-lucide="calendar"></i> My Events
+      </div>
+      <div class="nav-item" onclick="showPage('applications')" id="nav-applications">
+        <i data-lucide="handshake"></i> Parking Applications
+        <span class="nav-badge" id="pending-badge">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('traffic')" id="nav-traffic">
+        <i data-lucide="map"></i> Live Traffic Map
+      </div>
+      <div class="nav-item" onclick="showPage('broadcast')" id="nav-broadcast">
+        <i data-lucide="megaphone"></i> Broadcast Alert
+      </div>
+      <div class="nav-item" onclick="showPage('notifications')" id="nav-notifications">
+        <i data-lucide="bell"></i> Notifications
+        <span class="nav-badge" id="notif-badge" style="display:none"></span>
+      </div>
+      <div class="nav-item" onclick="showPage('profile')" id="nav-profile">
+        <i data-lucide="user"></i> Profile
+      </div>
+      <div class="nav-item" onclick="handleLogout()" style="margin-top:auto;color:var(--danger)">
+        <i data-lucide="log-out"></i> Logout
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar avatar-organiser" id="sidebar-avatar">OG</div>
+      <div>
+        <div class="sidebar-user-name" id="sidebar-name">Organiser</div>
+        <div class="sidebar-user-role">Event Organiser</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div>
+        <h1 class="topbar-title" id="topbar-title">Overview</h1>
+        <p class="topbar-sub" id="topbar-sub">Welcome back</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn-icon" onclick="showPage('notifications')">
+          <i data-lucide="bell"></i>
+        </button>
+        <div class="avatar avatar-organiser" id="topbar-avatar" style="cursor:pointer" onclick="showPage('profile')">OG</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PAGE: OVERVIEW ══════════════════ -->
+    <div class="page active" id="page-overview">
+      <div class="stats-grid" id="overview-stats"></div>
+
+      <div class="card" style="margin-top:24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h3 style="font-weight:700">Recent Events</h3>
+          <button class="btn btn-sm btn-primary" onclick="showPage('create-event')">+ Create Event</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:14px" id="recent-events-table">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.07)">Name</th>
+                <th style="text-align:left;padding:10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.07)">Venue</th>
+                <th style="text-align:left;padding:10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.07)">Date</th>
+                <th style="text-align:left;padding:10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.07)">Status</th>
+                <th style="text-align:left;padding:10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.07)">Lots</th>
+                <th style="text-align:left;padding:10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid rgba(255,255,255,0.07)">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recent-events-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:24px">
+        <h3 style="font-weight:700;margin-bottom:16px">Pending Applications</h3>
+        <div id="pending-apps-preview"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PAGE: CREATE EVENT ══════════════════ -->
+    <div class="page" id="page-create-event">
+      <div class="card" style="max-width:760px;margin:0 auto">
+        <h3 style="font-weight:700;margin-bottom:20px">Create New Event</h3>
+        <form id="create-event-form" onsubmit="submitCreateEvent(event)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="form-group">
+              <label class="form-label">Event Name *</label>
+              <input class="form-control" id="ev-name" placeholder="e.g. Chennai Super Kings vs MI" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Event Type *</label>
+              <select class="form-control" id="ev-type" required>
+                <option value="">Select type</option>
+                <option>Cricket Match</option>
+                <option>Concert</option>
+                <option>College Cultural</option>
+                <option>Temple Festival</option>
+                <option>Election Rally</option>
+                <option>Wedding</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Venue Name *</label>
+              <input class="form-control" id="ev-venue" placeholder="e.g. MA Chidambaram Stadium" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Expected Visitors *</label>
+              <input class="form-control" id="ev-visitors" type="number" min="1" placeholder="e.g. 50000" required/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Description</label>
+              <textarea class="form-control" id="ev-desc" rows="2" placeholder="Brief description of the event"></textarea>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Location Address</label>
+              <div style="display:flex;gap:8px">
+                <input class="form-control" id="ev-address" placeholder="Address or click map to pin" style="flex:1"/>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="geocodeCreateMap()">
+                  <i data-lucide="map-pin"></i> Geocode
+                </button>
+              </div>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:6px">Or click on the map below to set location</p>
+              <div id="create-map"></div>
+              <input type="hidden" id="ev-lat"/>
+              <input type="hidden" id="ev-lng"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input class="form-control" id="ev-date" type="date" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Start Time *</label>
+              <input class="form-control" id="ev-start" type="time" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">End Time *</label>
+              <input class="form-control" id="ev-end" type="time" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Number of Gates (1–5)</label>
+              <select class="form-control" id="ev-gates-count" onchange="renderGateNames()">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1" id="gate-names-container">
+              <!-- Rendered dynamically -->
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <div class="toggle-wrap">
+                <label class="toggle">
+                  <input type="checkbox" id="ev-emergency"/>
+                  <span class="toggle-slider"></span>
+                </label>
+                <span>Enable Emergency Lane</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button type="submit" class="btn btn-primary">Create Event</button>
+            <button type="button" class="btn btn-secondary" onclick="showPage('my-events')">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PAGE: MY EVENTS ══════════════════ -->
+    <div class="page" id="page-my-events">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h3 style="font-weight:700">My Events</h3>
+        <button class="btn btn-primary btn-sm" onclick="showPage('create-event')">+ Create Event</button>
+      </div>
+      <div id="my-events-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px"></div>
+    </div>
+
+    <!-- ══════════════════ PAGE: APPLICATIONS ══════════════════ -->
+    <div class="page" id="page-applications">
+      <h3 style="font-weight:700;margin-bottom:6px">Parking Applications</h3>
+      <div class="sub-tabs" id="global-app-tabs" style="margin-bottom:20px">
+        <div class="sub-tab active" onclick="filterGlobalApps('all',this)">All</div>
+        <div class="sub-tab" onclick="filterGlobalApps('pending',this)">Pending</div>
+        <div class="sub-tab" onclick="filterGlobalApps('accepted',this)">Accepted</div>
+        <div class="sub-tab" onclick="filterGlobalApps('declined',this)">Declined</div>
+      </div>
+      <div id="all-apps-container"></div>
+    </div>
+
+    <!-- ══════════════════ PAGE: LIVE TRAFFIC MAP ══════════════════ -->
+    <div class="page" id="page-traffic">
+      <!-- Live Congestion Alert Banner -->
+      <div class="alert alert-warning" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🚦</span>
+        <div style="flex:1;font-size:13px;">
+          <b>Live Road Congestion Monitoring:</b> Wallajah Road and Anna Salai are currently experiencing heavy match-day traffic (8-20 km/h). 
+          Kamarajar Promenade bypass is recommended for visitor routing to Gate B.
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <h3 style="font-weight:700">Live Traffic &amp; Road Inflow Map</h3>
+            <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted);margin-top:4px;flex-wrap:wrap;">
+              <span>Road Conditions:</span>
+              <span style="color:#10b981;font-weight:600;">● Free Flow (&gt;40km/h)</span>
+              <span style="color:#f59e0b;font-weight:600;">● Moderate (20-40km/h)</span>
+              <span style="color:#ef4444;font-weight:600;">● Heavy Bottleneck (&lt;10km/h)</span>
+              <span style="color:#dc2626;font-weight:600;">● 🚨 Emergency Corridor</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-outline btn-sm" onclick="openOrganiserGmapsModal()">
+              <i data-lucide="key"></i> <span id="org-gmaps-label">Google Maps Key</span>
+            </button>
+            <span style="font-size:12px;color:var(--text-muted)" id="traffic-refresh-label">Auto-sync: 30s</span>
+          </div>
+        </div>
+        <div id="traffic-map"></div>
+      </div>
+
+      <div class="card" style="margin-top:20px">
+        <h3 style="font-weight:700;margin-bottom:14px">Real-Time Lot Status</h3>
+        <div style="overflow-x:auto">
+          <table class="traffic-table" id="traffic-stats-table">
+            <thead>
+              <tr>
+                <th>Lot Name</th>
+                <th>Event</th>
+                <th>Total</th>
+                <th>Occupied</th>
+                <th>Available</th>
+                <th>Occupancy</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="traffic-stats-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PAGE: BROADCAST ALERT ══════════════════ -->
+    <div class="page" id="page-broadcast">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+        <div class="card">
+          <h3 style="font-weight:700;margin-bottom:20px">Send Broadcast Alert</h3>
+          <form onsubmit="submitBroadcast(event)">
+            <div class="form-group">
+              <label class="form-label">Target Event *</label>
+              <select class="form-control" id="bc-event" required>
+                <option value="">Select event</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Alert Type</label>
+              <select class="form-control" id="bc-type">
+                <option value="info">Info</option>
+                <option value="warning">Warning</option>
+                <option value="error">Emergency</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Message *</label>
+              <textarea class="form-control" id="bc-message" rows="4" placeholder="Type your broadcast message…" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%">
+              <i data-lucide="send"></i> Send Alert
+            </button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 style="font-weight:700;margin-bottom:14px">Recent Alerts Sent</h3>
+          <div id="recent-alerts-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ PAGE: NOTIFICATIONS ══════════════════ -->
+    <div class="page" id="page-notifications">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h3 style="font-weight:700">Notifications</h3>
+        <button class="btn btn-secondary btn-sm" onclick="markAllRead()">Mark All Read</button>
+      </div>
+      <div class="card" id="notif-list"></div>
+    </div>
+
+    <!-- ══════════════════ PAGE: PROFILE ══════════════════ -->
+    <div class="page" id="page-profile">
+      <div style="max-width:600px;margin:0 auto">
+        <div class="card" style="margin-bottom:20px">
+          <h3 style="font-weight:700;margin-bottom:20px">Edit Profile</h3>
+          <form onsubmit="saveProfile(event)">
+            <div class="profile-grid">
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-control" id="p-name" placeholder="Your full name"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-control" id="p-email" type="email" placeholder="you@email.com"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input class="form-control" id="p-phone" placeholder="+91 98765 43210"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Username</label>
+                <input class="form-control" id="p-username" disabled style="opacity:.5"/>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top:8px">Save Changes</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3 style="font-weight:700;margin-bottom:20px">Change Password</h3>
+          <form onsubmit="changePassword(event)">
+            <div class="form-group">
+              <label class="form-label">Current Password</label>
+              <input class="form-control" id="pw-current" type="password"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Password</label>
+              <input class="form-control" id="pw-new" type="password"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm New Password</label>
+              <input class="form-control" id="pw-confirm" type="password"/>
+            </div>
+            <button type="submit" class="btn btn-primary">Update Password</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════════ SCRIPTS ══════════════════ -->
+<script src="../js/db.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/map.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// AUTH GUARD
+// ═══════════════════════════════════════════════════════
+const user = Auth.requireAuth('organiser');
+if (!user) throw new Error('Not authorised');
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let createMap = null, createMarker = null;
+let trafficMap = null, trafficInterval = null;
+let lotMap = null;
+let arrivalChart = null;
+let currentModalEventId = null;
+let currentAppFilter = 'pending';
+let currentGlobalAppFilter = 'all';
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h/24)}d ago`;
+}
+
+function getStatusBadge(status) {
+  const map = {
+    upcoming:  '<span class="badge badge-info">Upcoming</span>',
+    ongoing:   '<span class="badge badge-success">Ongoing</span>',
+    completed: '<span class="badge badge-secondary">Completed</span>',
+    cancelled: '<span class="badge badge-danger">Cancelled</span>',
+    pending:   '<span class="badge badge-warning">Pending</span>',
+    accepted:  '<span class="badge badge-success">Accepted</span>',
+    declined:  '<span class="badge badge-danger">Declined</span>',
+    active:    '<span class="badge badge-success">Active</span>',
+  };
+  return map[status] || `<span class="badge">${status}</span>`;
+}
+
+function getTypeBadge(type) {
+  return `<span class="badge badge-info" style="font-size:11px">${type || 'Event'}</span>`;
+}
+
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function generateArrivalCurve(ev) {
+  if (!ev || !ev.date || !ev.startTime) return [];
+  const base = new Date(`${ev.date}T${ev.startTime}`);
+  const points = [];
+  const total = ev.expectedVisitors || 1000;
+  // Bell curve from -2h to +1h relative to start
+  for (let offset = -120; offset <= 60; offset += 10) {
+    const t = new Date(base.getTime() + offset * 60000);
+    const sigma = 30; // minutes
+    const peak = -30; // peak is 30 min before start
+    const x = offset - peak;
+    const y = Math.max(0, Math.round((total / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * (x / sigma) ** 2) * 10));
+    points.push({
+      time: t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      count: y
+    });
+  }
+  return points;
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE ROUTING
+// ═══════════════════════════════════════════════════════
+const PAGE_META = {
+  'overview':       { title: 'Overview',            sub: 'Your dashboard at a glance' },
+  'create-event':   { title: 'Create Event',         sub: 'Organise a new event' },
+  'my-events':      { title: 'My Events',            sub: 'Manage your events' },
+  'applications':   { title: 'Parking Applications', sub: 'Review lot applications from owners' },
+  'traffic':        { title: 'Live Traffic Map',     sub: 'Real-time parking & crowd monitoring' },
+  'broadcast':      { title: 'Broadcast Alert',      sub: 'Send alerts to event attendees' },
+  'notifications':  { title: 'Notifications',        sub: 'Your latest updates' },
+  'profile':        { title: 'Profile',              sub: 'Edit your account details' },
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const page = document.getElementById(`page-${name}`);
+  const nav  = document.getElementById(`nav-${name}`);
+  if (page) page.classList.add('active');
+  if (nav)  nav.classList.add('active');
+
+  const meta = PAGE_META[name] || {};
+  document.getElementById('topbar-title').textContent = meta.title || name;
+  document.getElementById('topbar-sub').textContent   = meta.sub || '';
+
+  // Lazy init / render per page
+  if (name === 'overview')      renderOverview();
+  if (name === 'create-event')  initCreateMap();
+  if (name === 'my-events')     renderMyEvents();
+  if (name === 'applications')  renderAllApps();
+  if (name === 'traffic')       initTrafficMap();
+  if (name === 'broadcast')     renderBroadcast();
+  if (name === 'notifications') renderNotifications();
+  if (name === 'profile')       renderProfile();
+
+  lucide.createIcons();
+}
+
+// ═══════════════════════════════════════════════════════
+// SIDEBAR SETUP
+// ═══════════════════════════════════════════════════════
+function setupSidebar() {
+  const initials = (user.name || 'OG').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('sidebar-avatar').textContent  = initials;
+  document.getElementById('topbar-avatar').textContent   = initials;
+  document.getElementById('sidebar-name').textContent    = user.name;
+  updateBadges();
+}
+
+function updateBadges() {
+  const pending = DB.Applications.byOrganiser(user.id).filter(a => a.status === 'pending').length;
+  const pb = document.getElementById('pending-badge');
+  pb.textContent = pending;
+  pb.style.display = pending ? 'inline-flex' : 'none';
+
+  const unread = DB.Notifications.unreadCount(user.id);
+  const nb = document.getElementById('notif-badge');
+  nb.textContent = unread;
+  nb.style.display = unread ? 'inline-flex' : 'none';
+}
+
+function handleLogout() {
+  if (confirm('Log out of EVETRAMASY?')) Auth.logout();
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: OVERVIEW
+// ═══════════════════════════════════════════════════════
+function renderOverview() {
+  const events   = DB.Events.byOrganiser(user.id);
+  const apps     = DB.Applications.byOrganiser(user.id);
+  const pending  = apps.filter(a => a.status === 'pending');
+  const active   = events.filter(e => e.status === 'ongoing');
+  const totalVis = events.reduce((s, e) => s + (e.expectedVisitors || 0), 0);
+
+  document.getElementById('overview-stats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(99,102,241,0.15);color:var(--role-organiser)"><i data-lucide="calendar-days"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">${events.length}</div>
+        <div class="stat-label">Total Events</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:#10b981"><i data-lucide="zap"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">${active.length}</div>
+        <div class="stat-label">Active Events</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b"><i data-lucide="clock"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">${pending.length}</div>
+        <div class="stat-label">Pending Applications</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(20,184,166,0.15);color:#14b8a6"><i data-lucide="users"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">${totalVis.toLocaleString()}</div>
+        <div class="stat-label">Total Visitors Expected</div>
+      </div>
+    </div>
+  `;
+
+  // Recent events table
+  const tbody = document.getElementById('recent-events-body');
+  if (!events.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No events yet. <a href="#" onclick="showPage('create-event')">Create your first event.</a></td></tr>`;
+  } else {
+    tbody.innerHTML = events.slice(0, 6).map(ev => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+        <td style="padding:12px">${ev.name}</td>
+        <td style="padding:12px;color:var(--text-muted)">${ev.venue}</td>
+        <td style="padding:12px;color:var(--text-muted)">${formatDate(ev.date)}</td>
+        <td style="padding:12px">${getStatusBadge(ev.status)}</td>
+        <td style="padding:12px">${(ev.approvedParkingLots||[]).length}</td>
+        <td style="padding:12px">
+          <button class="btn btn-sm btn-primary" onclick="openEventModal('${ev.id}')">View</button>
+          <button class="btn btn-sm btn-secondary" style="margin-left:6px" onclick="showPage('create-event')">Edit</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Pending apps preview (top 3)
+  const preview = document.getElementById('pending-apps-preview');
+  if (!pending.length) {
+    preview.innerHTML = `<p style="color:var(--text-muted);font-size:14px">No pending applications.</p>`;
+  } else {
+    preview.innerHTML = pending.slice(0, 3).map(app => buildAppCard(app, true)).join('');
+  }
+
+  lucide.createIcons();
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: CREATE EVENT
+// ═══════════════════════════════════════════════════════
+function initCreateMap() {
+  if (createMap) return;
+  setTimeout(() => {
+    createMap = MapEngine.initMap('create-map', 13.0827, 80.2707, 12);
+    createMap.on('click', async (e) => {
+      const { lat, lng } = e.latlng;
+      document.getElementById('ev-lat').value = lat;
+      document.getElementById('ev-lng').value = lng;
+      if (createMarker) createMarker.remove();
+      createMarker = L.marker([lat, lng]).addTo(createMap);
+      const addr = await MapEngine.reverseGeocode(lat, lng);
+      if (addr) document.getElementById('ev-address').value = addr;
+    });
+    renderGateNames();
+  }, 100);
+}
+
+async function geocodeCreateMap() {
+  const addr = document.getElementById('ev-address').value.trim();
+  if (!addr) return showToast('Enter an address first', 'warning');
+  const result = await MapEngine.geocode(addr);
+  if (!result) return showToast('Could not find that location', 'error');
+  document.getElementById('ev-lat').value = result.lat;
+  document.getElementById('ev-lng').value = result.lng;
+  document.getElementById('ev-address').value = result.display;
+  createMap.setView([result.lat, result.lng], 15);
+  if (createMarker) createMarker.remove();
+  createMarker = L.marker([result.lat, result.lng]).addTo(createMap);
+}
+
+function renderGateNames() {
+  const count = parseInt(document.getElementById('ev-gates-count').value) || 1;
+  const defaultNames = ['Gate A — North', 'Gate B — South', 'Gate C — East', 'Gate D — West', 'Gate E — VIP'];
+  let html = '<label class="form-label">Gate Names</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+  for (let i = 0; i < count; i++) {
+    html += `<input class="form-control gate-name-input" placeholder="${defaultNames[i] || 'Gate ' + (i+1)}" value="${defaultNames[i] || ''}"/>`;
+  }
+  html += '</div>';
+  document.getElementById('gate-names-container').innerHTML = html;
+}
+
+function submitCreateEvent(e) {
+  e.preventDefault();
+  const name     = document.getElementById('ev-name').value.trim();
+  const type     = document.getElementById('ev-type').value;
+  const venue    = document.getElementById('ev-venue').value.trim();
+  const desc     = document.getElementById('ev-desc').value.trim();
+  const address  = document.getElementById('ev-address').value.trim();
+  const lat      = parseFloat(document.getElementById('ev-lat').value) || 13.0827;
+  const lng      = parseFloat(document.getElementById('ev-lng').value) || 80.2707;
+  const date     = document.getElementById('ev-date').value;
+  const start    = document.getElementById('ev-start').value;
+  const end      = document.getElementById('ev-end').value;
+  const visitors = parseInt(document.getElementById('ev-visitors').value);
+  const emergency= document.getElementById('ev-emergency').checked;
+
+  const gateInputs = document.querySelectorAll('.gate-name-input');
+  const gates = Array.from(gateInputs).map((inp, i) => ({
+    id: `g${Date.now()}_${i}`,
+    name: inp.value.trim() || `Gate ${i + 1}`,
+    lat: 0, lng: 0, queue: 0
+  }));
+
+  DB.Events.create({
+    organiserId: user.id,
+    name, venue, address, lat, lng,
+    date, startTime: start, endTime: end,
+    expectedVisitors: visitors,
+    eventType: type,
+    status: 'upcoming',
+    description: desc,
+    gates,
+    emergencyLane: emergency,
+    approvedParkingLots: []
+  });
+
+  showToast(`Event "${name}" created successfully!`, 'success');
+  document.getElementById('create-event-form').reset();
+  if (createMarker) { createMarker.remove(); createMarker = null; }
+  showPage('my-events');
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: MY EVENTS
+// ═══════════════════════════════════════════════════════
+function renderMyEvents() {
+  const events = DB.Events.byOrganiser(user.id);
+  const grid   = document.getElementById('my-events-grid');
+
+  if (!events.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">
+      <p>No events created yet.</p>
+      <button class="btn btn-primary" style="margin-top:12px" onclick="showPage('create-event')">Create Your First Event</button>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = events.map(ev => `
+    <div class="event-card card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-weight:700;font-size:16px;margin-bottom:4px">${ev.name}</div>
+          ${getTypeBadge(ev.eventType)}
+        </div>
+        ${getStatusBadge(ev.status)}
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);margin:8px 0">
+        <div>📍 ${ev.venue}</div>
+        <div>📅 ${formatDate(ev.date)} · ${ev.startTime || ''} – ${ev.endTime || ''}</div>
+        <div>👥 ${(ev.expectedVisitors||0).toLocaleString()} visitors</div>
+        <div>🅿️ ${(ev.approvedParkingLots||[]).length} approved lot(s)</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary btn-sm" onclick="openEventModal('${ev.id}')">👁️ View Details</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteEvent(id) {
+  const ev = DB.Events.find(id);
+  if (!ev) return;
+  if (!confirm(`Delete "${ev.name}"? This cannot be undone.`)) return;
+  DB.Events.delete(id);
+  showToast('Event deleted', 'warning');
+  renderMyEvents();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════
+// EVENT DETAIL MODAL
+// ═══════════════════════════════════════════════════════
+function openEventModal(eventId) {
+  currentModalEventId = eventId;
+  currentAppFilter = 'pending';
+
+  const ev = DB.Events.find(eventId);
+  if (!ev) {
+    showToast('Event not found.', 'error');
+    return;
+  }
+
+  document.getElementById('modal-event-name').textContent = ev.name;
+
+  // Reset to Details tab
+  switchModalTab('details', document.querySelector('.modal-tab'));
+  loadModalDetails(ev);
+
+  const modal = document.getElementById('event-modal');
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+  lucide.createIcons();
+}
+
+function closeEventModal() {
+  const modal = document.getElementById('event-modal');
+  modal.classList.remove('open');
+  modal.style.display = 'none';
+  if (lotMap) { lotMap.remove(); lotMap = null; }
+  if (arrivalChart) { arrivalChart.destroy(); arrivalChart = null; }
+}
+
+function switchModalTab(tab, el) {
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById(`mtab-${tab}`).classList.add('active');
+
+  const ev = DB.Events.find(currentModalEventId);
+  if (!ev) return;
+
+  if (tab === 'details')      loadModalDetails(ev);
+  if (tab === 'lots')         loadModalLots(ev);
+  if (tab === 'applications') { currentAppFilter = 'pending'; loadModalApps(ev); }
+  if (tab === 'analytics')    loadModalAnalytics(ev);
+
+  lucide.createIcons();
+}
+
+// ── Details tab ──────────────────────────────
+function loadModalDetails(ev) {
+  const emergencyBanner = ev.emergencyLane
+    ? `<div class="emergency-banner">🚨 Emergency Lane Active — All attendees have been notified.</div>` : '';
+
+  document.getElementById('modal-details-content').innerHTML = `
+    ${emergencyBanner}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;margin-bottom:16px">
+      <div><span style="color:var(--text-muted)">Type:</span> ${ev.eventType || '—'}</div>
+      <div><span style="color:var(--text-muted)">Status:</span> ${getStatusBadge(ev.status)}</div>
+      <div><span style="color:var(--text-muted)">Venue:</span> ${ev.venue}</div>
+      <div><span style="color:var(--text-muted)">Date:</span> ${formatDate(ev.date)}</div>
+      <div><span style="color:var(--text-muted)">Start:</span> ${ev.startTime}</div>
+      <div><span style="color:var(--text-muted)">End:</span> ${ev.endTime}</div>
+      <div><span style="color:var(--text-muted)">Visitors:</span> ${(ev.expectedVisitors||0).toLocaleString()}</div>
+      <div><span style="color:var(--text-muted)">Address:</span> ${ev.address}</div>
+    </div>
+    ${ev.description ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">${ev.description}</p>` : ''}
+    <div class="toggle-wrap" style="margin-bottom:18px">
+      <label class="toggle">
+        <input type="checkbox" id="modal-emergency-toggle" ${ev.emergencyLane ? 'checked' : ''} onchange="toggleEmergency('${ev.id}',this.checked)"/>
+        <span class="toggle-slider"></span>
+      </label>
+      <span style="font-weight:600">Emergency Lane</span>
+      <span style="font-size:12px;color:var(--text-muted)">(Notifies all attendees)</span>
+    </div>
+    <h4 style="font-weight:700;margin-bottom:10px">Gates</h4>
+    ${(ev.gates||[]).map(g => `
+      <div class="gate-row">
+        <i data-lucide="door-open" style="color:var(--role-organiser)"></i>
+        <span style="flex:1;font-size:14px">${g.name}</span>
+        <span class="gate-queue">Queue: ${g.queue}</span>
+      </div>
+    `).join('') || '<p style="color:var(--text-muted);font-size:14px">No gates defined.</p>'}
+  `;
+  lucide.createIcons();
+}
+
+function toggleEmergency(eventId, on) {
+  const events = DB.Events.all().map(e =>
+    e.id === eventId ? { ...e, emergencyLane: on } : e
+  );
+  localStorage.setItem('evetramasy_events', JSON.stringify(events));
+
+  if (on) {
+    // Notify all customers with bookings for this event
+    const bookings = DB.Bookings.byEvent(eventId);
+    const notified = new Set();
+    bookings.forEach(b => {
+      if (!notified.has(b.customerId)) {
+        DB.Notifications.push(b.customerId,
+          `🚨 Emergency Lane activated for your event. Please follow marshals' instructions.`, 'error');
+        notified.add(b.customerId);
+      }
+    });
+    showToast(`Emergency Lane ON — ${notified.size} attendee(s) notified`, 'error');
+  } else {
+    showToast('Emergency Lane deactivated', 'info');
+  }
+
+  // Re-render banner
+  const ev = DB.Events.find(eventId);
+  if (ev) {
+    // patch local object for UI
+    const idx = DB.Events.all().findIndex(e => e.id === eventId);
+    loadModalDetails({ ...ev, emergencyLane: on });
+  }
+}
+
+// ── Lots tab ──────────────────────────────────
+function loadModalLots(ev) {
+  const lots = (ev.approvedParkingLots || []).map(id => DB.ParkingLots.find(id)).filter(Boolean);
+
+  let html = '';
+  if (!lots.length) {
+    html = `<p style="color:var(--text-muted);font-size:14px">No approved parking lots yet. Accept applications on the Applications tab.</p>`;
+  } else {
+    html = lots.map(lot => {
+      const occ = lot.totalSpaces - lot.availableSpaces;
+      const pct = Math.round((occ / lot.totalSpaces) * 100);
+      const fillColor = pct < 60 ? '#10b981' : pct < 90 ? '#f59e0b' : '#ef4444';
+      return `
+        <div class="lot-card card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:700">${lot.name}</div>
+              <div style="font-size:12px;color:var(--text-muted)">${lot.address}</div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="removeLotFromEvent('${ev.id}','${lot.id}')">Remove</button>
+          </div>
+          <div style="margin-top:10px;font-size:13px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span>Occupancy</span><span>${occ} / ${lot.totalSpaces} (${pct}%)</span>
+            </div>
+            <div class="occ-bar">
+              <div class="occ-fill" style="width:${pct}%;background:${fillColor}"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  document.getElementById('modal-lots-content').innerHTML = html;
+
+  // Map
+  setTimeout(() => {
+    if (lotMap) { lotMap.remove(); lotMap = null; }
+    if (!ev.lat) return;
+    lotMap = MapEngine.initMap('lot-map', ev.lat, ev.lng, 14);
+    // Event marker
+    L.marker([ev.lat, ev.lng]).addTo(lotMap).bindPopup(`<b>${ev.name}</b>`).openPopup();
+    // Lot markers
+    if (lots.length) MapEngine.plotParkingLots(lotMap, lots);
+  }, 120);
+}
+
+function removeLotFromEvent(eventId, lotId) {
+  if (!confirm('Remove this lot from the event?')) return;
+  DB.Events.removeLot(eventId, lotId);
+  showToast('Lot removed', 'warning');
+  loadModalLots(DB.Events.find(eventId));
+}
+
+// ── Applications tab ──────────────────────────
+function loadModalApps(ev) {
+  const apps = DB.Applications.byEvent(ev.id).filter(a => a.status === currentAppFilter);
+  const container = document.getElementById('modal-apps-content');
+
+  if (!apps.length) {
+    container.innerHTML = `<p style="color:var(--text-muted);font-size:14px">No ${currentAppFilter} applications.</p>`;
+    return;
+  }
+  container.innerHTML = apps.map(app => buildAppCard(app, currentAppFilter === 'pending')).join('');
+  lucide.createIcons();
+}
+
+function filterAppTab(status, el) {
+  currentAppFilter = status;
+  document.querySelectorAll('#app-sub-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const ev = DB.Events.find(currentModalEventId);
+  if (ev) loadModalApps(ev);
+}
+
+// ── Analytics tab ─────────────────────────────
+function loadModalAnalytics(ev) {
+  const bookings = DB.Bookings.byEvent(ev.id).filter(b => b.status !== 'cancelled');
+  const approvedLots = (ev.approvedParkingLots||[]).map(id => DB.ParkingLots.find(id)).filter(Boolean);
+
+  const revenue = bookings.reduce((s, b) => {
+    const lot = DB.ParkingLots.find(b.lotId);
+    return s + (lot ? lot.pricePerHour * 2 : 0); // estimate 2h avg
+  }, 0);
+
+  const occAvg = approvedLots.length
+    ? Math.round(approvedLots.reduce((s, l) => {
+        const pct = ((l.totalSpaces - l.availableSpaces) / l.totalSpaces) * 100;
+        return s + pct;
+      }, 0) / approvedLots.length)
+    : 0;
+
+  document.getElementById('analytics-stats-row').innerHTML = `
+    <div class="analytics-stat">
+      <div class="val">${bookings.length}</div>
+      <div class="lbl">Total Bookings</div>
+    </div>
+    <div class="analytics-stat">
+      <div class="val">${occAvg}%</div>
+      <div class="lbl">Avg Occupancy</div>
+    </div>
+    <div class="analytics-stat">
+      <div class="val">₹${revenue.toLocaleString()}</div>
+      <div class="lbl">Est. Revenue</div>
+    </div>
+    <div class="analytics-stat">
+      <div class="val">${approvedLots.length}</div>
+      <div class="lbl">Approved Lots</div>
+    </div>
+  `;
+
+  // Arrival curve chart
+  const curve = generateArrivalCurve(ev);
+  const ctx = document.getElementById('arrival-chart').getContext('2d');
+  if (arrivalChart) arrivalChart.destroy();
+  arrivalChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: curve.map(p => p.time),
+      datasets: [{
+        label: 'Predicted Arrivals',
+        data: curve.map(p => p.count),
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.15)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#94a3b8' } } },
+      scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+// ── Shared app card builder ───────────────────
+function buildAppCard(app, showActions) {
+  const lot   = DB.ParkingLots.find(app.lotId);
+  const owner = DB.Users.find(app.ownerId);
+  const ev    = DB.Events.find(app.eventId);
+  return `
+    <div class="app-card card" style="margin-bottom:12px" id="app-card-${app.id}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-weight:700">${lot ? lot.name : 'Unknown Lot'}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${owner ? owner.name : 'Unknown Owner'}</div>
+        </div>
+        ${getStatusBadge(app.status)}
+      </div>
+      ${ev ? `<div style="font-size:12px;color:var(--role-organiser);margin-bottom:6px">📅 ${ev.name}</div>` : ''}
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">"${app.message || ''}"</p>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+        🅿️ ${lot ? lot.totalSpaces : '?'} spaces · Applied ${formatDate(app.createdAt)}
+      </div>
+      ${showActions ? `
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-success btn-sm" onclick="respondApp('${app.id}','accepted')">Accept</button>
+          <button class="btn btn-danger btn-sm"  onclick="respondApp('${app.id}','declined')">Decline</button>
+        </div>` : ''}
+    </div>
+  `;
+}
+
+function respondApp(appId, status) {
+  const app = DB.Applications.find(appId);
+  if (!app) return;
+  DB.Applications.respond(appId, status);
+  const msg = status === 'accepted'
+    ? '✅ Your parking lot application was accepted!'
+    : '❌ Your parking lot application was declined.';
+  DB.Notifications.push(app.ownerId, msg, status === 'accepted' ? 'success' : 'warning');
+  showToast(`Application ${status}`, status === 'accepted' ? 'success' : 'warning');
+  updateBadges();
+
+  // Re-render whichever context is visible
+  const ev = DB.Events.find(currentModalEventId);
+  if (ev && document.getElementById('event-modal').style.display !== 'none') {
+    loadModalApps(ev);
+  } else {
+    renderAllApps();
+    renderOverview();
+  }
+
+  // Remove card from overview preview if needed
+  const card = document.getElementById(`app-card-${appId}`);
+  if (card) card.remove();
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: ALL APPLICATIONS
+// ═══════════════════════════════════════════════════════
+function renderAllApps() {
+  const all   = DB.Applications.byOrganiser(user.id);
+  const shown = currentGlobalAppFilter === 'all' ? all : all.filter(a => a.status === currentGlobalAppFilter);
+
+  // Group by event
+  const byEvent = {};
+  shown.forEach(app => {
+    if (!byEvent[app.eventId]) byEvent[app.eventId] = [];
+    byEvent[app.eventId].push(app);
+  });
+
+  const container = document.getElementById('all-apps-container');
+  if (!shown.length) {
+    container.innerHTML = `<p style="color:var(--text-muted)">No applications found.</p>`;
+    return;
+  }
+
+  // Sort so pending apps come first within each group
+  container.innerHTML = Object.entries(byEvent).map(([evId, apps]) => {
+    const ev = DB.Events.find(evId);
+    const sorted = [...apps].sort((a, b) => (a.status === 'pending' ? -1 : 1));
+    return `
+      <div style="margin-bottom:24px">
+        <h4 style="font-weight:700;margin-bottom:12px;color:var(--role-organiser)">
+          📅 ${ev ? ev.name : 'Unknown Event'}
+        </h4>
+        ${sorted.map(app => buildAppCard(app, app.status === 'pending')).join('')}
+      </div>
+    `;
+  }).join('');
+}
+
+function filterGlobalApps(filter, el) {
+  currentGlobalAppFilter = filter;
+  document.querySelectorAll('#global-app-tabs .sub-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderAllApps();
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: LIVE TRAFFIC MAP
+// ═══════════════════════════════════════════════════════
+function initTrafficMap() {
+  if (!trafficMap) {
+    setTimeout(() => {
+      trafficMap = MapEngine.initMap('traffic-map', 13.0827, 80.2707, 12);
+      populateTrafficMap();
+    }, 100);
+  } else {
+    populateTrafficMap();
+  }
+  renderTrafficTable();
+
+  // Auto-refresh every 30s with simulated occupancy changes
+  if (trafficInterval) clearInterval(trafficInterval);
+  trafficInterval = setInterval(() => {
+    simulateOccupancyChanges();
+    renderTrafficTable();
+    populateTrafficMap();
+  }, 30000);
+}
+
+function populateTrafficMap() {
+  if (!trafficMap) return;
+  trafficMap.eachLayer(l => {
+    if (l instanceof L.Marker || l instanceof L.Polyline) trafficMap.removeLayer(l);
+  });
+
+  const events = DB.Events.byOrganiser(user.id);
+  events.forEach(ev => {
+    if (!ev.lat) return;
+    trafficMap.setView([ev.lat, ev.lng], 14);
+
+    // Render live road traffic condition polylines around event venue
+    if (MapEngine.addTrafficLayer) {
+      MapEngine.addTrafficLayer(trafficMap, ev.lat, ev.lng, ev.emergencyLane);
+    }
+
+    const marker = L.marker([ev.lat, ev.lng], { icon: makeTrafficIcon('#6366f1', '🎪') }).addTo(trafficMap);
+    const lots = (ev.approvedParkingLots||[]).map(id => DB.ParkingLots.find(id)).filter(Boolean);
+    const lotStatus = lots.map(l => {
+      const pct = Math.round(((l.totalSpaces - l.availableSpaces) / l.totalSpaces) * 100);
+      return `${l.name}: ${pct}% occupied (${l.availableSpaces} free)`;
+    }).join('<br>');
+    marker.bindPopup(`<b>${ev.name}</b><br>📍 ${ev.venue}<br>👥 ${(ev.expectedVisitors||0).toLocaleString()} expected<br><hr style="margin:6px 0;opacity:0.3;">${lotStatus || 'No approved lots'}`);
+  });
+
+  // Approved lot markers across all organiser events
+  const allLotIds = [...new Set(events.flatMap(e => e.approvedParkingLots||[]))];
+  allLotIds.forEach(lid => {
+    const lot = DB.ParkingLots.find(lid);
+    if (!lot || !lot.lat) return;
+    const pct = Math.round(((lot.totalSpaces - lot.availableSpaces) / lot.totalSpaces) * 100);
+    const color = pct < 60 ? '#10b981' : pct < 90 ? '#f59e0b' : '#ef4444';
+    const m = L.marker([lot.lat, lot.lng], { icon: makeTrafficIcon(color, '🅿') }).addTo(trafficMap);
+    m.bindPopup(`<b>${lot.name}</b><br>${pct}% occupied<br>${lot.availableSpaces} spaces free`);
+  });
+}
+
+function openOrganiserGmapsModal() {
+  const currentKey = DB.Config ? DB.Config.getGoogleMapsKey() : (localStorage.getItem('evetramasy_gmaps_key') || '');
+  const key = prompt('Enter your Google Maps API Key to enable official Google Traffic layers:', currentKey);
+  if (key !== null) {
+    if (DB.Config) DB.Config.setGoogleMapsKey(key);
+    else localStorage.setItem('evetramasy_gmaps_key', key.trim());
+    const label = document.getElementById('org-gmaps-label');
+    if (label) label.textContent = key ? 'Google Maps: Set' : 'Google Maps Key';
+    showToast(key ? 'Google Maps API Key saved!' : 'Google Maps Key cleared', 'success');
+  }
+}
+
+function makeTrafficIcon(color, symbol) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:34px;height:34px;border-radius:50%;background:${color};border:3px solid #fff;
+      display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,0.4)">${symbol}</div>`,
+    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -20]
+  });
+}
+
+function renderTrafficTable() {
+  const events = DB.Events.byOrganiser(user.id);
+  const rows = [];
+  events.forEach(ev => {
+    (ev.approvedParkingLots||[]).forEach(lid => {
+      const lot = DB.ParkingLots.find(lid);
+      if (!lot) return;
+      const occ = lot.totalSpaces - lot.availableSpaces;
+      const pct = Math.round((occ / lot.totalSpaces) * 100);
+      const color = pct < 60 ? '#10b981' : pct < 90 ? '#f59e0b' : '#ef4444';
+      rows.push(`
+        <tr>
+          <td>${lot.name}</td>
+          <td style="color:var(--text-muted)">${ev.name}</td>
+          <td>${lot.totalSpaces}</td>
+          <td>${occ}</td>
+          <td>${lot.availableSpaces}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="occ-bar" style="width:80px"><div class="occ-fill" style="width:${pct}%;background:${color}"></div></div>
+              <span style="font-size:12px">${pct}%</span>
+            </div>
+          </td>
+          <td><span class="badge" style="background:${color}20;color:${color}">${pct < 60 ? 'Open' : pct < 90 ? 'Filling' : 'Full'}</span></td>
+        </tr>
+      `);
+    });
+  });
+
+  document.getElementById('traffic-stats-body').innerHTML = rows.length
+    ? rows.join('')
+    : `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No approved lots to display.</td></tr>`;
+}
+
+function simulateOccupancyChanges() {
+  const events = DB.Events.byOrganiser(user.id);
+  events.forEach(ev => {
+    (ev.approvedParkingLots||[]).forEach(lid => {
+      const lot = DB.ParkingLots.find(lid);
+      if (!lot) return;
+      const delta = Math.floor(Math.random() * 5) - 2; // -2 to +2
+      const newAvail = Math.max(0, Math.min(lot.totalSpaces, lot.availableSpaces + delta));
+      DB.ParkingLots.update(lid, { availableSpaces: newAvail });
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: BROADCAST ALERT
+// ═══════════════════════════════════════════════════════
+function renderBroadcast() {
+  const events = DB.Events.byOrganiser(user.id);
+  const sel = document.getElementById('bc-event');
+  sel.innerHTML = `<option value="">Select event</option>` +
+    events.map(ev => `<option value="${ev.id}">${ev.name}</option>`).join('');
+
+  renderRecentAlerts();
+}
+
+function renderRecentAlerts() {
+  const allNotifs = DB.Notifications.forUser(user.id);
+  const recent = allNotifs.slice(0, 10);
+  const list = document.getElementById('recent-alerts-list');
+  if (!recent.length) {
+    list.innerHTML = `<p style="color:var(--text-muted);font-size:14px">No alerts sent yet.</p>`;
+    return;
+  }
+  list.innerHTML = recent.map(n => `
+    <div style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.07)">
+      <div style="font-size:13px;margin-bottom:2px">${n.message}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${timeAgo(n.createdAt)}</div>
+    </div>
+  `).join('');
+}
+
+function submitBroadcast(e) {
+  e.preventDefault();
+  const eventId = document.getElementById('bc-event').value;
+  const type    = document.getElementById('bc-type').value;
+  const message = document.getElementById('bc-message').value.trim();
+  if (!eventId || !message) return showToast('Select an event and enter a message', 'warning');
+
+  const bookings = DB.Bookings.byEvent(eventId);
+  const notified = new Set();
+  bookings.forEach(b => {
+    if (!notified.has(b.customerId)) {
+      DB.Notifications.push(b.customerId, `📢 Event Alert: ${message}`, type);
+      notified.add(b.customerId);
+    }
+  });
+
+  // Self-confirmation
+  DB.Notifications.push(user.id, `✅ Broadcast sent to ${notified.size} attendee(s): "${message}"`, 'info');
+
+  showToast(`Alert sent to ${notified.size} attendee(s)`, 'success');
+  document.getElementById('bc-message').value = '';
+  renderRecentAlerts();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: NOTIFICATIONS
+// ═══════════════════════════════════════════════════════
+function renderNotifications() {
+  const notifs = DB.Notifications.forUser(user.id);
+  const list   = document.getElementById('notif-list');
+
+  if (!notifs.length) {
+    list.innerHTML = `<p style="color:var(--text-muted);padding:20px;text-align:center">No notifications yet.</p>`;
+    return;
+  }
+
+  list.innerHTML = notifs.map(n => `
+    <div class="notif-item" onclick="DB.Notifications.markRead('${n.id}');renderNotifications();updateBadges()" style="cursor:pointer">
+      <div class="notif-dot ${n.read ? 'read' : ''}"></div>
+      <div style="flex:1">
+        <div class="notif-msg" style="${n.read ? 'color:var(--text-muted)' : ''}">${n.message}</div>
+        <div class="notif-time">${timeAgo(n.createdAt)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function markAllRead() {
+  DB.Notifications.markAllRead(user.id);
+  renderNotifications();
+  updateBadges();
+  showToast('All notifications marked as read', 'info');
+}
+
+// ═══════════════════════════════════════════════════════
+// PAGE: PROFILE
+// ═══════════════════════════════════════════════════════
+function renderProfile() {
+  const full = DB.Users.find(user.id);
+  if (!full) return;
+  document.getElementById('p-name').value     = full.name || '';
+  document.getElementById('p-email').value    = full.email || '';
+  document.getElementById('p-phone').value    = full.phone || '';
+  document.getElementById('p-username').value = full.username || '';
+}
+
+function saveProfile(e) {
+  e.preventDefault();
+  DB.Users.update(user.id, {
+    name:  document.getElementById('p-name').value.trim(),
+    email: document.getElementById('p-email').value.trim(),
+    phone: document.getElementById('p-phone').value.trim(),
+  });
+  showToast('Profile updated successfully', 'success');
+}
+
+function changePassword(e) {
+  e.preventDefault();
+  const cur = document.getElementById('pw-current').value;
+  const nw  = document.getElementById('pw-new').value;
+  const cf  = document.getElementById('pw-confirm').value;
+
+  const full = DB.Users.find(user.id);
+  if (!full) return;
+  if (full.password !== cur) return showToast('Current password is incorrect', 'error');
+  if (nw !== cf)             return showToast('New passwords do not match', 'error');
+  if (nw.length < 6)         return showToast('Password must be at least 6 characters', 'warning');
+
+  DB.Users.update(user.id, { password: nw });
+  showToast('Password changed successfully', 'success');
+  document.getElementById('pw-current').value = '';
+  document.getElementById('pw-new').value     = '';
+  document.getElementById('pw-confirm').value = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+(function init() {
+  setupSidebar();
+  showPage('overview');
+  // Set min date for create event form
+  document.getElementById('ev-date').min = new Date().toISOString().split('T')[0];
+  renderGateNames();
+})();
+</script>
+</body>
+</html>

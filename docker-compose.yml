@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: evetramasy_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-evetramasy_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-evetramasy_pass}
+      POSTGRES_DB: ${DB_NAME:-evetramasy_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Mount initialization scripts if needed (we use npm run seed instead)
+      # - ./backend/database/migrations:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-evetramasy_user} -d ${DB_NAME:-evetramasy_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------
+  # Express.js Backend API
+  # ----------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: evetramasy_backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_USER=${DB_USER:-evetramasy_user}
+      - DB_PASSWORD=${DB_PASSWORD:-evetramasy_pass}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-evetramasy_db}
+      - JWT_SECRET=${JWT_SECRET:-super_secret_evetramasy_key_2026_!@#}
+    # Uncomment for local development with auto-reload (requires volume mounting)
+    # command: npm run dev
+    # volumes:
+    #   - ./backend:/app
+    #   - /app/node_modules
+
+  # ----------------------------------------
+  # Vite + React Frontend
+  # ----------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: evetramasy_frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:3000/api}
+
+volumes:
+  pgdata:
